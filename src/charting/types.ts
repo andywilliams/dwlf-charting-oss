@@ -488,4 +488,4 @@ export interface BosLineAnnotation extends AnnotationBase {
   showLabel: boolean;
 }
 
-export type Annotation = HLineAnnotation | VLineAnnotation | TextAnnotation | TrendLineAnnotation | RayAnnotation | CrossLineAnnotation | RectangleAnnotation | EmojiAnnotation | TimeRangeAnnotation | ArrowAnnotation | ChannelAnnotation | FibRetracementAnnotation | MeasureAnnotation | AlertLineAnnotation | BrushAnnotation | PitchforkAnnotation | FibExtensionAnnotation | OrderBlockAnnotation | FairValueGapAnnotation | BosLineAnnotation;
+export type Annotation = HLineAnnotation | VLineAnnotation | TextAnnotation | TrendLineAnnotation | RayAnnotation | CrossLineAnnotation | RectangleAnnotation | EmojiAnnotation | TimeRangeAnnotation | ArrowAnnotation | ChannelAnnotation | FibRetracementAnnotation | MeasureAnnotation | AlertLineAnnotation | BrushAnnotation | PitchforkAnnotation | FibExtensionAnnotation | OrderBlockAnnotation | FairValueGapAnnotation | BosLineAnnotation;// v1.1.1
