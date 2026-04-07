@@ -166,6 +166,47 @@ const spec: ChartSpec = {
 | `style` | `CSSProperties` | — | Inline styles on container |
 | `animationState` | `ChartAnimationState` | — | Control entry animations |
 
+## Crosshair Modes
+
+By default the crosshair snaps to the nearest candle (`'series'` mode). Most traders prefer the crosshair to follow the mouse freely — use `'pointer'` mode:
+
+```tsx
+<DWLFChart spec={spec} crosshairSnapMode="pointer" />
+```
+
+| Mode | Behaviour |
+|------|-----------|
+| `'series'` (default) | Snaps to nearest candle — good for precise OHLC readouts |
+| `'pointer'` | Follows mouse position freely — feels more natural for interactive use |
+
+## Pan & Zoom
+
+Set `enablePanZoom={true}` to enable scroll-to-zoom and drag-to-pan. **This is off by default**, so the chart won't capture mouse scroll events unless you opt in.
+
+```tsx
+<DWLFChart spec={spec} enablePanZoom={true} />
+```
+
+If the chart is embedded in a scrollable page, be aware that `enablePanZoom` will capture scroll events over the chart area for zooming. You may want to place the chart in a fixed-height container so page scrolling still works outside the chart.
+
+Use `initialVisibleCount` to control how many candles are visible on first render (the default shows all data):
+
+```tsx
+<DWLFChart spec={spec} enablePanZoom={true} initialVisibleCount={100} />
+```
+
+## Right-Side Buffer
+
+By default the chart fits data edge-to-edge. To add empty space on the right (useful for seeing the latest candle clearly or leaving room for annotations), use `extraRightSlots`:
+
+```tsx
+<DWLFChart spec={spec} extraRightSlots={5} />
+```
+
+This adds 5 candle-widths of empty space to the right of the last data point.
+
+Alternatively, you can append placeholder candles to your data with the same timestamp spacing but no visible data — the chart will render the empty space naturally.
+
 ## Annotations
 
 20+ built-in annotation types with creation helpers:
