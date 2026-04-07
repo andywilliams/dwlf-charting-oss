@@ -90,6 +90,9 @@
   .dwlf-chart-container.fade-transition .dwlf-chart-svg .dwlf-series-line,
   .dwlf-chart-container.fade-transition .dwlf-chart-svg .dwlf-series-area {
     transition: none !important;
+  }
+}
+
 /* Event Marker Drop Animation */
 .marker-overlay-animated .dwlf-marker-drop {
   animation: marker-drop 600ms ease-out forwards;
@@ -98,21 +101,21 @@
 }
 
 @keyframes marker-drop {
-  0% { 
-    opacity: 0; 
-    transform: translateY(-20px); 
+  0% {
+    opacity: 0;
+    transform: translateY(-20px);
   }
-  60% { 
-    opacity: 0.8; 
-    transform: translateY(2px); 
+  60% {
+    opacity: 0.8;
+    transform: translateY(2px);
   }
-  80% { 
-    opacity: 1; 
-    transform: translateY(-1px); 
+  80% {
+    opacity: 1;
+    transform: translateY(-1px);
   }
-  100% { 
-    opacity: 1; 
-    transform: translateY(0); 
+  100% {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -136,4 +139,3 @@
     transition: none !important;
   }
 }
-// charting styles

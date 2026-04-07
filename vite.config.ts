@@ -1,12 +1,19 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import dts from 'vite-plugin-dts';
 import { resolve } from 'path';
 import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig(({ mode }) => {
   if (mode === 'lib') {
     return {
-      plugins: [react()],
+      plugins: [
+        react(),
+        dts({
+          include: ['src'],
+          insertTypesEntry: true,
+        }),
+      ],
       build: {
         lib: {
           entry: resolve(fileURLToPath(new URL('.', import.meta.url)), 'src/index.ts'),

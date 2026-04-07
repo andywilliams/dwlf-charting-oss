@@ -41,6 +41,8 @@ export interface SeriesSpec {
   key: string;
   type: SeriesType;
   data: any[];
+  /** Shorthand for style.color. If both are set, style.color takes precedence. */
+  color?: string;
   style?: SeriesStyle;
   tooltipFormatter?: TooltipFormatter;
   showInTooltip?: boolean;
@@ -180,6 +182,12 @@ export interface TrendLineAnnotation extends AnnotationBase {
   type: 'trendline';
   time1: number;
   price1: number;
+  time2: number;
+  price2: number;
+  color?: string;
+  lineWidth?: number;
+  lineStyle?: LineStyle;
+  label?: string;
   extendLeft: boolean;
   extendRight: boolean;
 }
