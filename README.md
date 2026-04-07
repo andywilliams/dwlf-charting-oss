@@ -259,7 +259,7 @@ import { DWLFChart } from '@dwlf/charting';
 import '@dwlf/charting/styles';
 
 // Compute indicators (timestamps must match your candle timestamps)
-const ema8 = EMA.computeEMA(candles, 8);
+const ema8 = EMA.computeEMA(candles, { length: 8 });
 const bb = Bollinger.computeBollingerBands(candles, { length: 20 });
 
 // Build chart spec — remember to convert timestamps to milliseconds
@@ -277,6 +277,10 @@ const spec = {
   }],
 };
 ```
+
+## Tutorial: Build Your First Dashboard
+
+For a complete step-by-step guide to building a market intelligence dashboard with `@dwlf/charting`, `@dwlf/indicators`, and the DWLF API, see **[Build Your First DWLF Dashboard](docs/BUILD-YOUR-FIRST-DASHBOARD.md)**.
 
 ## Used By
 
