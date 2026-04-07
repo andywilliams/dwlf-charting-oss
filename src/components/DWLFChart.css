@@ -1,0 +1,138 @@
+.dwlf-chart-container {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #1a202c;
+}
+
+.dwlf-chart-svg {
+  display: block;
+}
+
+.dwlf-pane-tooltip {
+  position: absolute;
+  padding: 6px 10px;
+  background: rgba(17, 24, 39, 0.85);
+  color: #f7fafc;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  font-size: 11px;
+  pointer-events: none;
+  max-width: 220px;
+  backdrop-filter: blur(4px);
+}
+
+.dwlf-pane-tooltip__title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.dwlf-pane-tooltip__content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dwlf-pane-tooltip__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.dwlf-candles path {
+  shape-rendering: crispEdges;
+}
+
+.dwlf-y-axis text {
+  text-anchor: end;
+}
+
+.dwlf-x-axis text {
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Chart Animation Classes */
+.dwlf-chart-container.fade-transition {
+  transition: opacity 500ms ease-out, background-color 300ms ease-out;
+}
+
+.dwlf-chart-container.fade-transition.loading {
+  opacity: 1;
+}
+
+.dwlf-chart-container.fade-transition.background {
+  opacity: 1;
+}
+
+/* Animation phase-aware classes for smooth transitions */
+.dwlf-chart-container.fade-transition .dwlf-chart-svg g {
+  transition: opacity 300ms ease-out;
+}
+
+.dwlf-chart-container.fade-transition .dwlf-chart-svg .dwlf-candles {
+  transition: opacity 200ms ease-out;
+}
+
+.dwlf-chart-container.fade-transition .dwlf-chart-svg .dwlf-series-line {
+  transition: opacity 400ms ease-out;
+}
+
+.dwlf-chart-container.fade-transition .dwlf-chart-svg .dwlf-series-area {
+  transition: opacity 400ms ease-out;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .dwlf-chart-container,
+  .dwlf-chart-container.fade-transition,
+  .dwlf-chart-container.fade-transition .dwlf-chart-svg g,
+  .dwlf-chart-container.fade-transition .dwlf-chart-svg .dwlf-candles,
+  .dwlf-chart-container.fade-transition .dwlf-chart-svg .dwlf-series-line,
+  .dwlf-chart-container.fade-transition .dwlf-chart-svg .dwlf-series-area {
+    transition: none !important;
+/* Event Marker Drop Animation */
+.marker-overlay-animated .dwlf-marker-drop {
+  animation: marker-drop 600ms ease-out forwards;
+  opacity: 0;
+  transform: translateY(-20px);
+}
+
+@keyframes marker-drop {
+  0% { 
+    opacity: 0; 
+    transform: translateY(-20px); 
+  }
+  60% { 
+    opacity: 0.8; 
+    transform: translateY(2px); 
+  }
+  80% { 
+    opacity: 1; 
+    transform: translateY(-1px); 
+  }
+  100% { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+/* Reduced motion support for marker animations */
+@media (prefers-reduced-motion: reduce) {
+  .marker-overlay-animated .dwlf-marker-drop {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* Annotation Layer Fade Animation */
+.annotation-layer {
+  transition: opacity 400ms ease-in-out;
+}
+
+/* Reduced motion support for annotation transitions */
+@media (prefers-reduced-motion: reduce) {
+  .annotation-layer {
+    transition: none !important;
+  }
+}

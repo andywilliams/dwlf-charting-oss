@@ -1,0 +1,86 @@
+{
+  "name": "@dwlf/charting",
+  "version": "0.0.0-development",
+  "description": "React charting library for financial data — candlestick charts, annotations, overlays, and interaction hooks.",
+  "type": "module",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./styles": "./dist/charting.css"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "vite build --mode lib",
+    "dev": "vite",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build",
+    "release": "semantic-release"
+  },
+  "keywords": [
+    "charting",
+    "react",
+    "candlestick",
+    "finance",
+    "trading",
+    "d3",
+    "svg",
+    "annotations",
+    "overlays",
+    "technical-analysis",
+    "dwlf"
+  ],
+  "author": "DWLF <hello@dwlf.co.uk>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andywilliams/dwlf-charting-oss.git"
+  },
+  "bugs": {
+    "url": "https://github.com/andywilliams/dwlf-charting-oss/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "peerDependencies": {
+    "react": ">=16.8.0",
+    "react-dom": ">=16.8.0"
+  },
+  "dependencies": {
+    "d3": "^7.9.0",
+    "prop-types": "^15.8.1"
+  },
+  "devDependencies": {
+    "@semantic-release/commit-analyzer": "^13.0.0",
+    "@semantic-release/github": "^10.1.4",
+    "@semantic-release/npm": "^13.1.1",
+    "@semantic-release/release-notes-generator": "^14.0.1",
+    "@types/d3": "^7.4.3",
+    "@types/node": "^20.16.10",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^8.57.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "semantic-release": "^23.1.1",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.0",
+    "vitest": "^2.1.3"
+  }
+}
