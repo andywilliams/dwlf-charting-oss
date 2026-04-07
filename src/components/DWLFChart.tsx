@@ -947,7 +947,7 @@ export interface DwlfChartHandle {
 const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart(
   {
     spec,
-    darkMode = false,
+    darkMode = true,
     showGrid = true,
     className,
     style,
