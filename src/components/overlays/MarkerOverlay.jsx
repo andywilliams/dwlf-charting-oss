@@ -108,6 +108,12 @@ export default function MarkerOverlay({
       );
     }
     if (isOutline) {
+      // pointerEvents: 'all' makes the full circle area (including
+      // the transparent interior) hit-testable. Without it, SVG's
+      // default `visiblePainted` rule would only fire pointer events
+      // on the thin stroke — making outline markers nearly impossible
+      // to click for tooltip interaction. The filled variant doesn't
+      // need this because its painted fill area is fully interactive.
       elements.push(
         <circle
           key={key}
@@ -117,7 +123,7 @@ export default function MarkerOverlay({
           fill="none"
           stroke={color}
           strokeWidth={strokeWidth}
-          style={{ cursor }}
+          style={{ cursor, pointerEvents: 'all' }}
         />,
       );
     } else {
