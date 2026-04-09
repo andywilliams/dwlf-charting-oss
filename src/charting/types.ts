@@ -26,6 +26,26 @@ export interface SeriesStyle {
   markerFontSize?: number;
   markerTextColor?: string;
   markerTextOffsetY?: number;
+  /**
+   * 'filled' (default) renders the marker as a solid shape.
+   * 'outline' renders just the stroke (hollow ring for circles).
+   */
+  markerVariant?: 'filled' | 'outline';
+  /**
+   * Stroke width in pixels for the 'outline' variant. Defaults to 1.5.
+   * Has no effect on the 'filled' variant.
+   */
+  markerStrokeWidth?: number;
+  /**
+   * If > 0, draws a soft halo (a translucent concentric circle) behind
+   * the marker. The halo's outer radius is `markerSize + markerHaloSize`.
+   * Defaults to 0 (no halo).
+   */
+  markerHaloSize?: number;
+  /**
+   * Opacity of the halo, 0..1. Defaults to 0.25.
+   */
+  markerHaloOpacity?: number;
   riskColor?: string;
   rewardColor?: string;
   bubbleColor?: string;
