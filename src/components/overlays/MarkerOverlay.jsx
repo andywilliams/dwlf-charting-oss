@@ -17,6 +17,12 @@ import PropTypes from 'prop-types';
  * - fontSize : number – optional font size for the text label
  * - textColor : string – optional text color for the label
  * - textOffsetY : number – optional Y-offset for the text label
+ * - variant : 'filled' (default) | 'outline' – fill style. 'outline' draws
+ *     just the stroke for a hollow ring effect on circles.
+ * - strokeWidth : number – stroke width for the 'outline' variant (default 1.5)
+ * - haloSize : number – if > 0, draws a soft halo (translucent concentric
+ *     circle) behind the marker. Outer radius = size + haloSize.
+ * - haloOpacity : number – opacity of the halo (default 0.25)
  * - onMarkerClick : function – optional click handler (receives point data)
  * - animationPhase : string – current animation phase for drop-in effects
  * - staggerDelay : number – delay in ms between each marker animation
@@ -35,6 +41,10 @@ export default function MarkerOverlay({
   fontSize = 10,
   textColor = color,
   textOffsetY = 0,
+  variant = 'filled',
+  strokeWidth = 1.5,
+  haloSize = 0,
+  haloOpacity = 0.25,
   onMarkerClick,
   animationPhase,
   staggerDelay = 100,
@@ -61,7 +71,8 @@ export default function MarkerOverlay({
   const renderMarker = (cx, cy, key, hasTooltip) => {
     const cursor = hasTooltip ? 'pointer' : 'default';
     if (shape === 'arrow-up') {
-      // Upwards pointing triangle (tip at cy)
+      // Upwards pointing triangle (tip at cy). Arrows ignore variant/
+      // halo for now — they're always filled and have no halo concept.
       const path = `M ${cx} ${cy} l ${-size} ${size} l ${2 * size} 0 Z`;
       return <path key={key} d={path} fill={color} stroke={color} style={{ cursor }} />;
     }
@@ -74,8 +85,57 @@ export default function MarkerOverlay({
       // No shape, just return null (text label will still render)
       return null;
     }
-    // Default: circle
-    return <circle key={key} cx={cx} cy={cy} r={size} fill={color} stroke={color} style={{ cursor }} />;
+    // Default: circle. Supports two variants and an optional halo:
+    //   - 'filled' (default) renders a solid disc.
+    //   - 'outline' renders just a stroked ring (hollow).
+    //   - haloSize > 0 draws a soft translucent halo behind the dot,
+    //     useful for drawing the eye to discrete points without making
+    //     the marker itself dominant.
+    const isOutline = variant === 'outline';
+    const elements = [];
+    if (haloSize > 0) {
+      elements.push(
+        <circle
+          key={`${key}-halo`}
+          cx={cx}
+          cy={cy}
+          r={size + haloSize}
+          fill={color}
+          opacity={haloOpacity}
+          stroke="none"
+          style={{ pointerEvents: 'none' }}
+        />,
+      );
+    }
+    if (isOutline) {
+      elements.push(
+        <circle
+          key={key}
+          cx={cx}
+          cy={cy}
+          r={size}
+          fill="none"
+          stroke={color}
+          strokeWidth={strokeWidth}
+          style={{ cursor }}
+        />,
+      );
+    } else {
+      elements.push(
+        <circle
+          key={key}
+          cx={cx}
+          cy={cy}
+          r={size}
+          fill={color}
+          stroke={color}
+          style={{ cursor }}
+        />,
+      );
+    }
+    // React 16+ accepts an array as a child of <g> — keys above keep
+    // it stable across re-renders.
+    return elements;
   };
 
   const handleMarkerClick = (point, cx, cy) => {
@@ -200,8 +260,12 @@ MarkerOverlay.propTypes = {
   fontSize: PropTypes.number,
   textColor: PropTypes.string,
   textOffsetY: PropTypes.number,
+  variant: PropTypes.oneOf(['filled', 'outline']),
+  strokeWidth: PropTypes.number,
+  haloSize: PropTypes.number,
+  haloOpacity: PropTypes.number,
   onMarkerClick: PropTypes.func,
   animationPhase: PropTypes.string,
   staggerDelay: PropTypes.number,
   staggerStartIndex: PropTypes.number,
-}; 
+};

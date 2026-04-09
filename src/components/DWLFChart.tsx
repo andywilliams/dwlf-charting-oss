@@ -72,6 +72,10 @@ type MarkerDatum = {
   fontSize?: number;
   textColor?: string;
   textOffsetY?: number;
+  variant?: 'filled' | 'outline';
+  strokeWidth?: number;
+  haloSize?: number;
+  haloOpacity?: number;
   tooltip?: string;
   text?: string;
 };
@@ -347,6 +351,10 @@ const renderMarkerSeries = (
   const defaultFontSize = series.style?.markerFontSize ?? 10;
   const defaultTextColor = series.style?.markerTextColor ?? defaultColor;
   const defaultTextOffsetY = series.style?.markerTextOffsetY ?? 0;
+  const defaultVariant = series.style?.markerVariant ?? 'filled';
+  const defaultStrokeWidth = series.style?.markerStrokeWidth ?? 1.5;
+  const defaultHaloSize = series.style?.markerHaloSize ?? 0;
+  const defaultHaloOpacity = series.style?.markerHaloOpacity ?? 0.25;
 
   type MarkerGroupKey = {
     shape: 'arrow-up' | 'arrow-down' | 'circle';
@@ -356,6 +364,10 @@ const renderMarkerSeries = (
     fontSize: number;
     textColor: string;
     textOffsetY: number;
+    variant: 'filled' | 'outline';
+    strokeWidth: number;
+    haloSize: number;
+    haloOpacity: number;
   };
 
   const groupMap = new Map<string, { key: MarkerGroupKey; points: MarkerDatum[] }>();
@@ -375,7 +387,23 @@ const renderMarkerSeries = (
     const fontSize = point.fontSize ?? defaultFontSize;
     const textColor = point.textColor ?? defaultTextColor;
     const textOffsetY = point.textOffsetY ?? defaultTextOffsetY;
-    const keyObj: MarkerGroupKey = { shape, size, color, offsetY, fontSize, textColor, textOffsetY };
+    const variant = point.variant ?? defaultVariant;
+    const strokeWidth = point.strokeWidth ?? defaultStrokeWidth;
+    const haloSize = point.haloSize ?? defaultHaloSize;
+    const haloOpacity = point.haloOpacity ?? defaultHaloOpacity;
+    const keyObj: MarkerGroupKey = {
+      shape,
+      size,
+      color,
+      offsetY,
+      fontSize,
+      textColor,
+      textOffsetY,
+      variant,
+      strokeWidth,
+      haloSize,
+      haloOpacity,
+    };
     const key = JSON.stringify(keyObj);
     if (!groupMap.has(key)) {
       groupMap.set(key, { key: keyObj, points: [] });
@@ -418,6 +446,10 @@ const renderMarkerSeries = (
           fontSize={key.fontSize}
           textColor={key.textColor}
           textOffsetY={key.textOffsetY}
+          variant={key.variant}
+          strokeWidth={key.strokeWidth}
+          haloSize={key.haloSize}
+          haloOpacity={key.haloOpacity}
           animationPhase={animationState?.phase}
           staggerDelay={100}
           staggerStartIndex={staggerStartIndex}
