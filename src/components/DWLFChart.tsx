@@ -2039,7 +2039,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
                   animationPhase={animationState?.phase}
                 />
               )}
-              {hover && hoverInfo && showCrosshairPriceLabel && hoverInfo.lineVisible !== false
+              {hover && hoverInfo && showCrosshairPriceLabel && !pane.hideYAxis && hoverInfo.lineVisible !== false
                 && Number.isFinite(hoverInfo.y ?? NaN) && (() => {
                   const labelWidth = 72;
                   const labelHeight = 18;
@@ -2094,20 +2094,22 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
                   strokeDasharray="3 3"
                 />
               )}
-              <g className="dwlf-y-axis" transform={`translate(${width - 40}, 0)`}>
-                {ticks.map((tick, index) => (
-                  <text
-                    key={`${tick}-${index}`}
-                    x={0}
-                    y={scale.scale(tick)}
-                    fill={axisColor}
-                    fontSize={11}
-                    alignmentBaseline="middle"
-                  >
-                    {formatNumber(tick)}
-                  </text>
-                ))}
-              </g>
+              {!pane.hideYAxis && (
+                <g className="dwlf-y-axis" transform={`translate(${width - 40}, 0)`}>
+                  {ticks.map((tick, index) => (
+                    <text
+                      key={`${tick}-${index}`}
+                      x={0}
+                      y={scale.scale(tick)}
+                      fill={axisColor}
+                      fontSize={11}
+                      alignmentBaseline="middle"
+                    >
+                      {formatNumber(tick)}
+                    </text>
+                  ))}
+                </g>
+              )}
               {pane.title && (
                 <text x={12} y={14} fill={textColor} fontSize={12} fontWeight={600}>
                   {pane.title}

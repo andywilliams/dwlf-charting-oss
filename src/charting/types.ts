@@ -82,6 +82,15 @@ export interface PaneSpec {
   yScale: { mode: 'auto' | 'fixed'; min?: number; max?: number };
   series: SeriesSpec[];
   guides?: PaneGuide[];
+  /**
+   * When true, the pane is rendered without its right-edge y-axis tick
+   * labels. Useful for "marker band" panes that show events along the
+   * time axis but don't have a meaningful price/value scale to label.
+   *
+   * Has no effect on the pane's hover crosshair or its data — only the
+   * visible tick text and tick label positioning are skipped.
+   */
+  hideYAxis?: boolean;
 }
 
 export interface ChartSpec {

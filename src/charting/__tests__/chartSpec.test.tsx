@@ -62,6 +62,58 @@ describe('DWLFChart rendering', () => {
     );
     expect(normalised).toMatchSnapshot();
   });
+
+  it('omits the y-axis tick labels when pane.hideYAxis is true', () => {
+    const specWithHiddenAxis: ChartSpec = {
+      panes: [
+        {
+          id: 'pane-price',
+          heightRatio: 3,
+          yScale: { mode: 'auto' },
+          series: [priceSeries],
+        },
+        {
+          id: 'pane-events',
+          heightRatio: 0.5,
+          yScale: { mode: 'fixed', min: 0, max: 1 },
+          hideYAxis: true,
+          series: [],
+        },
+      ],
+    };
+    const markup = renderToStaticMarkup(
+      <DWLFChart spec={specWithHiddenAxis} darkMode={false} showGrid={false} />,
+    );
+    // Both panes should still render — we're only suppressing the y-axis
+    // text layer. Sanity-check: at least one dwlf-y-axis should exist (for
+    // the price pane), confirming the suppression is per-pane, not global.
+    const yAxisMatches = (markup.match(/dwlf-y-axis/g) || []).length;
+    expect(yAxisMatches).toBe(1);
+  });
+
+  it('renders y-axis tick labels for all panes when hideYAxis is not set (regression check)', () => {
+    const specWithoutHiddenAxis: ChartSpec = {
+      panes: [
+        {
+          id: 'pane-price',
+          heightRatio: 3,
+          yScale: { mode: 'auto' },
+          series: [priceSeries],
+        },
+        {
+          id: 'pane-osc',
+          heightRatio: 1,
+          yScale: { mode: 'fixed', min: 0, max: 100 },
+          series: [oscSeries],
+        },
+      ],
+    };
+    const markup = renderToStaticMarkup(
+      <DWLFChart spec={specWithoutHiddenAxis} darkMode={false} showGrid={false} />,
+    );
+    const yAxisMatches = (markup.match(/dwlf-y-axis/g) || []).length;
+    expect(yAxisMatches).toBe(2);
+  });
 });
 
 describe('crosshair synchronisation', () => {
