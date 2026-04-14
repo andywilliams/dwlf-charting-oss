@@ -728,11 +728,28 @@ const filterSeriesDataForRange = (
   }
 
   if (series.type === 'line' || !series.type) {
-    // Always keep all line data — lines are cheap to render and SVG
-    // natively clips segments that extend beyond the viewport. Filtering
-    // individual points breaks trendlines that span beyond the visible
-    // range (both endpoints off-screen but line crosses the viewport).
-    return series.data;
+    // For 2-point line series (trendlines), keep both endpoints whenever
+    // the segment crosses the window — even if both endpoints sit outside
+    // it. SVG clips the visible portion. Multi-point line series
+    // (indicators like MACD, oscillators) still get filtered by point so
+    // their off-window values don't distort the pane's y-domain.
+    if (series.data.length === 2) {
+      const first = series.data[0] as { t?: number | null };
+      const second = series.data[1] as { t?: number | null };
+      const hasFiniteTimes =
+        Number.isFinite(first?.t ?? NaN) && Number.isFinite(second?.t ?? NaN);
+      if (hasFiniteTimes) {
+        const firstTime = Number(first?.t);
+        const secondTime = Number(second?.t);
+        const segmentStart = Math.min(firstTime, secondTime);
+        const segmentEnd = Math.max(firstTime, secondTime);
+        const segmentInWindow = segmentEnd >= windowStart && segmentStart <= windowEnd;
+        if (inWindow(firstTime) || inWindow(secondTime) || segmentInWindow) {
+          return series.data;
+        }
+      }
+    }
+    return series.data.filter((point: any) => inWindow(point?.t));
   }
 
   if (series.type === 'hist' || series.type === 'area') {
