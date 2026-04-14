@@ -29,6 +29,7 @@ import {
   buildPaneScales,
   collectSpecTimes,
   findClosestTime,
+  resolveFractionalIndex,
 } from '../charting/scales';
 
 const DEFAULT_HEIGHT = 400;
@@ -316,10 +317,22 @@ const renderLineLikeSeries = (
     return <path d={path} fill={stroke} opacity={Math.min(0.4, opacity)} stroke="none" />;
   }
 
+  // Guard against pathological coordinates (e.g. a raw timestamp ~1.7e12
+  // leaking through an index-based xScale) that the SVG renderer would
+  // silently drop. The limit must be well below browser-native breakage
+  // (~17M in Firefox, ~33M in Chrome) but high enough that legitimately
+  // extrapolated cross-timeframe trendline endpoints — which routinely
+  // reach ±25k–300k px on the hourly chart — pass through unclamped.
+  // Clamping x and y independently would otherwise distort the rendered
+  // slope. ±1e6 catches raw timestamps while leaving real extrapolation
+  // alone.
+  const COORD_LIMIT = 1_000_000;
+  const clamp = (v: number) => Math.max(-COORD_LIMIT, Math.min(COORD_LIMIT, v));
+
   const line = d3.line<LinePoint>()
     .defined(point => Number.isFinite(point.v))
-    .x(point => xScale(point.t))
-    .y(point => scale.scale(point.v));
+    .x(point => clamp(xScale(point.t)))
+    .y(point => clamp(scale.scale(point.v)));
 
   const path = line(data);
   if (!path) return null;
@@ -715,6 +728,11 @@ const filterSeriesDataForRange = (
   }
 
   if (series.type === 'line' || !series.type) {
+    // For 2-point line series (trendlines), keep both endpoints whenever
+    // the segment crosses the window — even if both endpoints sit outside
+    // it. SVG clips the visible portion. Multi-point line series
+    // (indicators like MACD, oscillators) still get filtered by point so
+    // their off-window values don't distort the pane's y-domain.
     if (series.data.length === 2) {
       const first = series.data[0] as { t?: number | null };
       const second = series.data[1] as { t?: number | null };
@@ -1269,9 +1287,21 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
           return point;
         }
         const original = point.__rawTime ?? point.t;
-        const idx = compressedTimeData.rawToIndex.get(original);
+        const times = compressedTimeData.indexToRaw;
+        // Off-range timestamps must map to fractional indices — the
+        // xScale domain is [0, N], so leaving a raw timestamp (~1.7e12)
+        // would produce impossibly large pixel coordinates and the SVG
+        // renderer would silently drop the path. Shared helper mirrors
+        // the annotationUtils path so line series and annotations agree.
+        let idx: number | undefined = compressedTimeData.rawToIndex.get(original);
+        if (idx === undefined) idx = resolveFractionalIndex(times, original);
         if (idx === undefined) {
-          return point;
+          // Last resort: clamp to an off-screen index so the path still draws.
+          if (times.length > 0) {
+            idx = original <= times[0] ? -1 : times.length;
+          } else {
+            return point;
+          }
         }
         if (point.t === idx && point.__rawTime) {
           return point;

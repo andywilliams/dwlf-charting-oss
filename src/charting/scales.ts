@@ -259,4 +259,43 @@ export const findClosestTime = (times: number[], value: number): number => {
   return Math.abs(before - value) <= Math.abs(after - value) ? before : after;
 };
 
+/**
+ * Map a raw timestamp to a fractional index in a sorted `times` array.
+ * Exact matches return the integer index. Timestamps between two candles
+ * return a local fractional index. Timestamps outside the array are
+ * extrapolated from the first/last pair.
+ *
+ * Returns `undefined` only when the array has fewer than 2 elements (or
+ * zero-width adjacent times), leaving the fallback strategy up to the
+ * caller. This is the shared kernel behind both compressed line-series
+ * remapping and annotation extrapolation, so line series and user-drawn
+ * annotations agree on positioning.
+ */
+export const resolveFractionalIndex = (
+  times: number[],
+  value: number,
+): number | undefined => {
+  if (!times || times.length === 0) return undefined;
+  let lo = 0;
+  let hi = times.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (times[mid] < value) lo = mid + 1;
+    else if (times[mid] > value) hi = mid - 1;
+    else return mid;
+  }
+  if (times.length < 2) return undefined;
+  if (hi < 0) {
+    const dt = times[1] - times[0];
+    return dt ? (value - times[0]) / dt : undefined;
+  }
+  if (lo >= times.length) {
+    const lastIdx = times.length - 1;
+    const dt = times[lastIdx] - times[lastIdx - 1];
+    return dt ? lastIdx + (value - times[lastIdx]) / dt : undefined;
+  }
+  const dt = times[lo] - times[hi];
+  return dt ? hi + (value - times[hi]) / dt : hi;
+};
+
 export type { LinePoint, OhlcPoint, PaneSpec, SeriesSpec };
