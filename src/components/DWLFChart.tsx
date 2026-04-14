@@ -29,6 +29,7 @@ import {
   buildPaneScales,
   collectSpecTimes,
   findClosestTime,
+  resolveFractionalIndex,
 } from '../charting/scales';
 
 const DEFAULT_HEIGHT = 400;
@@ -269,7 +270,7 @@ const renderLineLikeSeries = (
 ) => {
   const style = series.style ?? {};
   const strokeWidth = style.lineWidth ?? 1.5;
-  const stroke = style.color ?? series.color ?? '#6b7280';
+  const stroke = style.color ?? '#6b7280';
   const baseOpacity = style.opacity ?? 1;
   const dash = style.dashed ? '4 4' : undefined;
 
@@ -316,10 +317,22 @@ const renderLineLikeSeries = (
     return <path d={path} fill={stroke} opacity={Math.min(0.4, opacity)} stroke="none" />;
   }
 
+  // Guard against pathological coordinates (e.g. a raw timestamp ~1.7e12
+  // leaking through an index-based xScale) that the SVG renderer would
+  // silently drop. The limit must be well below browser-native breakage
+  // (~17M in Firefox, ~33M in Chrome) but high enough that legitimately
+  // extrapolated cross-timeframe trendline endpoints — which routinely
+  // reach ±25k–300k px on the hourly chart — pass through unclamped.
+  // Clamping x and y independently would otherwise distort the rendered
+  // slope. ±1e6 catches raw timestamps while leaving real extrapolation
+  // alone.
+  const COORD_LIMIT = 1_000_000;
+  const clamp = (v: number) => Math.max(-COORD_LIMIT, Math.min(COORD_LIMIT, v));
+
   const line = d3.line<LinePoint>()
     .defined(point => Number.isFinite(point.v))
-    .x(point => xScale(point.t))
-    .y(point => scale.scale(point.v));
+    .x(point => clamp(xScale(point.t)))
+    .y(point => clamp(scale.scale(point.v)));
 
   const path = line(data);
   if (!path) return null;
@@ -346,7 +359,7 @@ const renderMarkerSeries = (
   const bandwidth = computePointBandwidth(rawData, xScale);
   const defaultShape = series.style?.markerShape ?? 'circle';
   const defaultSize = series.style?.markerSize ?? 6;
-  const defaultColor = series.style?.color ?? series.color ?? '#fbbf24';
+  const defaultColor = series.style?.color ?? '#fbbf24';
   const defaultOffsetY = series.style?.markerOffsetY ?? 0;
   const defaultFontSize = series.style?.markerFontSize ?? 10;
   const defaultTextColor = series.style?.markerTextColor ?? defaultColor;
@@ -561,7 +574,7 @@ const renderOhlcSeries = (
 ) => {
   const candleWidth = computeCandleWidth(data, xScale, chartWidth);
   const halfWidth = candleWidth / 2;
-  const baseColor = series.style?.color ?? series.color ?? (darkMode ? '#22c55e' : '#16a34a');
+  const baseColor = series.style?.color ?? (darkMode ? '#22c55e' : '#16a34a');
   const parsed = d3.color(baseColor);
   const bearFallback = darkMode ? '#ef4444' : '#b91c1c';
   const bearColor = parsed ? parsed.darker(1.2).formatHex() : bearFallback;
@@ -715,23 +728,11 @@ const filterSeriesDataForRange = (
   }
 
   if (series.type === 'line' || !series.type) {
-    if (series.data.length === 2) {
-      const first = series.data[0] as { t?: number | null };
-      const second = series.data[1] as { t?: number | null };
-      const hasFiniteTimes =
-        Number.isFinite(first?.t ?? NaN) && Number.isFinite(second?.t ?? NaN);
-      if (hasFiniteTimes) {
-        const firstTime = Number(first?.t);
-        const secondTime = Number(second?.t);
-        const segmentStart = Math.min(firstTime, secondTime);
-        const segmentEnd = Math.max(firstTime, secondTime);
-        const segmentInWindow = segmentEnd >= windowStart && segmentStart <= windowEnd;
-        if (inWindow(firstTime) || inWindow(secondTime) || segmentInWindow) {
-          return series.data;
-        }
-      }
-    }
-    return series.data.filter((point: any) => inWindow(point?.t));
+    // Always keep all line data — lines are cheap to render and SVG
+    // natively clips segments that extend beyond the viewport. Filtering
+    // individual points breaks trendlines that span beyond the visible
+    // range (both endpoints off-screen but line crosses the viewport).
+    return series.data;
   }
 
   if (series.type === 'hist' || series.type === 'area') {
@@ -788,30 +789,30 @@ const renderSeries = (
 
 const computeSeriesHover = (series: SeriesSpec, time: number): HoverSeries => {
   if (!Array.isArray(series.data) || series.data.length === 0) {
-    return { key: series.key, color: series.style?.color ?? series.color, value: null, display: '—', raw: null };
+    return { key: series.key, color: series.style?.color, value: null, display: '—', raw: null };
   }
 
   if (series.type === 'ohlc' && isOhlcArray(series.data)) {
     const point = findNearestOhlcPoint(series.data, time);
     if (!point) {
-      return { key: series.key, color: series.style?.color ?? series.color, value: null, display: '—', raw: null };
+      return { key: series.key, color: series.style?.color, value: null, display: '—', raw: null };
     }
     const display = series.tooltipFormatter
       ? series.tooltipFormatter(point)
       : `O ${formatNumber(point.o)}  H ${formatNumber(point.h)}  L ${formatNumber(point.l)}  C ${formatNumber(point.c)}`;
-    return { key: series.key, color: series.style?.color ?? series.color, value: point.c ?? null, display, raw: point };
+    return { key: series.key, color: series.style?.color, value: point.c ?? null, display, raw: point };
   }
 
   if (series.type === 'marker') {
     const data = (series.data as MarkerDatum[])
       .filter(point => Number.isFinite(point?.t) && Number.isFinite(point?.v));
     if (!data.length) {
-      return { key: series.key, color: series.style?.color ?? series.color, value: null, display: '—', raw: null };
+      return { key: series.key, color: series.style?.color, value: null, display: '—', raw: null };
     }
     const linePoints: LinePoint[] = data.map(point => ({ t: point.t, v: point.v }));
     const nearest = findNearestLinePoint(linePoints, time);
     if (!nearest) {
-      return { key: series.key, color: series.style?.color ?? series.color, value: null, display: '—', raw: null };
+      return { key: series.key, color: series.style?.color, value: null, display: '—', raw: null };
     }
     const match = data.find(point => point.t === nearest.t && point.v === nearest.v) ?? null;
     const display = series.tooltipFormatter
@@ -827,7 +828,7 @@ const computeSeriesHover = (series: SeriesSpec, time: number): HoverSeries => {
     const data = (series.data as PositionDatum[])
       .filter(point => Number.isFinite(point?.start) && Number.isFinite(point?.entry) && Number.isFinite(point?.stop) && Number.isFinite(point?.target));
     if (!data.length) {
-      return { key: series.key, color: series.style?.color ?? series.color, value: null, display: '—', raw: null };
+      return { key: series.key, color: series.style?.color, value: null, display: '—', raw: null };
     }
 
     const nearest = data.reduce<PositionDatum | null>((acc, current) => {
@@ -844,7 +845,7 @@ const computeSeriesHover = (series: SeriesSpec, time: number): HoverSeries => {
     }, null);
 
     if (!nearest) {
-      return { key: series.key, color: series.style?.color ?? series.color, value: null, display: '—', raw: null };
+      return { key: series.key, color: series.style?.color, value: null, display: '—', raw: null };
     }
 
     const display = series.tooltipFormatter
@@ -859,17 +860,17 @@ const computeSeriesHover = (series: SeriesSpec, time: number): HoverSeries => {
   if (isLinePointArray(series.data)) {
     const point = findNearestLinePoint(series.data, time);
     if (!point) {
-      return { key: series.key, color: series.style?.color ?? series.color, value: null, display: '—', raw: null };
+      return { key: series.key, color: series.style?.color, value: null, display: '—', raw: null };
     }
     const display = series.tooltipFormatter
       ? series.tooltipFormatter(point)
       : formatNumber(point.v);
-    return { key: series.key, color: series.style?.color ?? series.color, value: point.v ?? null, display, raw: point };
+    return { key: series.key, color: series.style?.color, value: point.v ?? null, display, raw: point };
   }
 
   const fallback = series.data.find((item: any) => item && typeof item.t === 'number');
   const display = series.tooltipFormatter ? series.tooltipFormatter(fallback) : '—';
-  return { key: series.key, color: series.style?.color ?? series.color, value: null, display, raw: fallback };
+  return { key: series.key, color: series.style?.color, value: null, display, raw: fallback };
 };
 
 export interface AxisColorConfig {
@@ -979,7 +980,7 @@ export interface DwlfChartHandle {
 const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart(
   {
     spec,
-    darkMode = true,
+    darkMode = false,
     showGrid = true,
     className,
     style,
@@ -1269,9 +1270,21 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
           return point;
         }
         const original = point.__rawTime ?? point.t;
-        const idx = compressedTimeData.rawToIndex.get(original);
+        const times = compressedTimeData.indexToRaw;
+        // Off-range timestamps must map to fractional indices — the
+        // xScale domain is [0, N], so leaving a raw timestamp (~1.7e12)
+        // would produce impossibly large pixel coordinates and the SVG
+        // renderer would silently drop the path. Shared helper mirrors
+        // the annotationUtils path so line series and annotations agree.
+        let idx: number | undefined = compressedTimeData.rawToIndex.get(original);
+        if (idx === undefined) idx = resolveFractionalIndex(times, original);
         if (idx === undefined) {
-          return point;
+          // Last resort: clamp to an off-screen index so the path still draws.
+          if (times.length > 0) {
+            idx = original <= times[0] ? -1 : times.length;
+          } else {
+            return point;
+          }
         }
         if (point.t === idx && point.__rawTime) {
           return point;

@@ -1,5 +1,5 @@
 import type { LineStyle, XScale } from '../../charting/types';
-import { findClosestTime } from '../../charting/scales';
+import { findClosestTime, resolveFractionalIndex } from '../../charting/scales';
 
 /** Maps LineStyle values to SVG stroke-dasharray patterns */
 export const LINE_STYLE_MAP: Record<LineStyle, string | undefined> = {
@@ -73,11 +73,14 @@ export const resolveXWithExtrapolation = (
 
   if (timeToIndex && indexToTime && dataLength > 0) {
     if (!compressedTimes || compressedTimes.length === 0) return undefined;
-    const lastIndex = Math.min(compressedTimes.length - 1, dataLength - 1);
-    firstTime = compressedTimes[0];
-    lastTime = compressedTimes[lastIndex];
-    firstX = xScale(0);
-    lastX = xScale(lastIndex);
+    // In compressed/index-based mode the xScale domain is [0, N] and
+    // gaps are non-uniform (weekends, overnight). Resolve via the shared
+    // binary-search + local-interpolation helper so this path and the
+    // line-series remap path (DWLFChart.remapSeriesData) agree.
+    const idx = resolveFractionalIndex(compressedTimes, time);
+    if (idx === undefined) return undefined;
+    const x = xScale(idx);
+    return Number.isFinite(x) ? x : undefined;
   } else if (xScale.invert) {
     const range = xScale.range ? xScale.range() : [0, chartWidth ?? 0];
     const start = xScale.invert(range[0]);
