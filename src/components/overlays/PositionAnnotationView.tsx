@@ -479,11 +479,14 @@ const PositionAnnotationView: React.FC<PositionAnnotationViewProps> = ({
         </g>
       )}
 
-      {/* Price labels at the three levels (right side) */}
+      {/* Price labels at the three levels (right side). Target is always
+          the reward leg (green) and stop is always the risk leg (red),
+          regardless of long/short direction — colour matches the fill zone
+          on the same side of entry. */}
       {[
-        { y: yTarget, label: formatPrice(annotation.targetPrice), color: isLong ? REWARD_STROKE : RISK_STROKE },
+        { y: yTarget, label: formatPrice(annotation.targetPrice), color: REWARD_STROKE },
         { y: yEntry, label: formatPrice(annotation.entryPrice), color: ENTRY_COLOR },
-        { y: yStop, label: formatPrice(annotation.stopPrice), color: isLong ? RISK_STROKE : REWARD_STROKE },
+        { y: yStop, label: formatPrice(annotation.stopPrice), color: RISK_STROKE },
       ].map(({ y, label, color }, idx) => (
         <g key={idx} style={{ pointerEvents: 'none' }}>
           <rect

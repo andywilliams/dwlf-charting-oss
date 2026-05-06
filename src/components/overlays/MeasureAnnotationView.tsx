@@ -83,8 +83,10 @@ const formatTimeDiff = (ms: number, timeframe?: string): string => {
   }
 
   // Default (daily and unknown): pick the largest unit that fits.
-  if (weeks >= 4) {
-    const months = Math.floor(days / 30.44);
+  // Only switch to months once it rounds to ≥ 2 (avoids "0mo" / "1mo" for
+  // 28–30 day spans, which read worse than the equivalent week count).
+  const months = Math.floor(days / 30.44);
+  if (months >= 2) {
     return `${months}mo`;
   }
   if (weeks >= 2) {
