@@ -58,7 +58,21 @@ const useAnnotationDrag = ({
     setIsDragging(true);
     onDragStartRef.current?.(event);
 
+    const startX = event.clientX;
+    const startY = event.clientY;
+    // Movement threshold (pixels). Below this we treat the gesture as a click,
+    // not a drag — so click-to-select still fires on annotations whose body
+    // wires up onMouseDown unconditionally (e.g. Measure's whole-drag rect).
+    const MOVE_THRESHOLD = 4;
+    let didMove = false;
+
     const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!didMove) {
+        const dx = Math.abs(moveEvent.clientX - startX);
+        const dy = Math.abs(moveEvent.clientY - startY);
+        if (dx + dy < MOVE_THRESHOLD) return;
+        didMove = true;
+      }
       onDragMoveRef.current(moveEvent);
     };
 
@@ -70,7 +84,26 @@ const useAnnotationDrag = ({
       onDragEndRef.current?.();
     };
 
+    // Swallow the click event the browser synthesizes after mouseup so a drag
+    // that lands over the chart background doesn't trigger a deselect. Only
+    // suppress when the gesture *actually* moved past the threshold — a quick
+    // click without movement should still bubble normally so click-to-select
+    // works on bodies that wire onMouseDown unconditionally.
+    const swallowNextClick = (clickEvent: MouseEvent) => {
+      clickEvent.stopPropagation();
+      clickEvent.preventDefault();
+      window.removeEventListener('click', swallowNextClick, true);
+    };
+
     const handleMouseUp = () => {
+      if (didMove) {
+        window.addEventListener('click', swallowNextClick, true);
+        // Safety: drop the listener on the next tick if no click ever fires
+        // (e.g. mouseup off-window), so it can't leak across drags.
+        setTimeout(() => {
+          window.removeEventListener('click', swallowNextClick, true);
+        }, 0);
+      }
       cleanup();
     };
 

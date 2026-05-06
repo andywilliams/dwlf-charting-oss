@@ -942,10 +942,30 @@ export interface DWLFChartProps {
    */
   onAnnotationDoubleClick?: (id: string) => void;
   /**
+   * When false, the entire annotation layer is pointer-events: none. Set this
+   * during a two-point or brush placement so existing annotations don't
+   * absorb the second click and clicks always reach the canvas commit handler.
+   * Defaults to true.
+   */
+  interactiveAnnotations?: boolean;
+  /**
    * Callback when user clicks on chart canvas (for placing annotations).
    * Receives { time, price, paneId, screenX, screenY }.
    */
   onChartCanvasClick?: (info: {
+    time: number;
+    price: number;
+    paneId: string;
+    screenX: number;
+    screenY: number;
+  }) => void;
+  /**
+   * Same payload as onChartCanvasClick, but fires on mouseup. Useful for
+   * gestures where the browser might suppress the synthesized click event
+   * (e.g., second-click commit during a two-point placement when the cursor
+   * jitters slightly during the press).
+   */
+  onCanvasMouseUp?: (info: {
     time: number;
     price: number;
     paneId: string;
@@ -1015,7 +1035,9 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
     onAnnotationMove,
     onAnnotationTextEdit,
     onAnnotationDoubleClick,
+    interactiveAnnotations = true,
     onChartCanvasClick,
+    onCanvasMouseUp,
     onCanvasMouseMove,
     onChartCanvasHover,
     animationState,
@@ -1897,11 +1919,45 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
   }, [panEnabled, panMouseHandlers]);
 
   const handleMouseUpForPan = useCallback((event: React.MouseEvent<SVGElement>) => {
-    if (!panEnabled || !panMouseHandlers.onMouseUp) {
-      return;
+    if (panEnabled && panMouseHandlers.onMouseUp) {
+      panMouseHandlers.onMouseUp(event);
     }
-    panMouseHandlers.onMouseUp(event);
-  }, [panEnabled, panMouseHandlers]);
+
+    // Fire onCanvasMouseUp with the same payload shape as onChartCanvasClick,
+    // for consumers (e.g., annotation placement) that need a reliable commit
+    // signal even when the browser suppresses the synthesized click event.
+    if (!onCanvasMouseUp || !svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const clampedX = Math.max(0, Math.min(x, Math.max(0, width)));
+    const inverted = xScale.invert(clampedX);
+    const rawTime = inverted instanceof Date ? inverted.valueOf() : inverted;
+    if (!Number.isFinite(rawTime)) return;
+    const closestTime = findClosestTime(times, rawTime);
+    if (!Number.isFinite(closestTime)) return;
+    const displayTime = getRawTimeFromValue(closestTime);
+    const pointerY = event.clientY - rect.top;
+    for (const [paneId, paneRect] of paneRectMap.entries()) {
+      const bottom = paneRect.y + paneRect.height;
+      if (pointerY >= paneRect.y && pointerY <= bottom) {
+        const scale = paneScales[paneId];
+        if (scale) {
+          const relativeY = pointerY - paneRect.y;
+          const price = scale.invert(relativeY);
+          if (Number.isFinite(price)) {
+            onCanvasMouseUp({
+              time: displayTime,
+              price,
+              paneId,
+              screenX: event.clientX,
+              screenY: event.clientY,
+            });
+          }
+        }
+        break;
+      }
+    }
+  }, [panEnabled, panMouseHandlers, onCanvasMouseUp, svgRef, width, xScale, times, getRawTimeFromValue, paneRectMap, paneScales]);
 
   const handleMouseLeaveForPan = useCallback((event: React.MouseEvent<SVGElement>) => {
     if (!panEnabled || !panMouseHandlers.onMouseLeave) {
@@ -2099,6 +2155,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
                   compressedTimes={compressedTimeData?.indexToRaw}
                   currentTimeframe={timeframe}
                   animationPhase={animationState?.phase}
+                  interactive={interactiveAnnotations}
                 />
               )}
               {hover && hoverInfo && showCrosshairPriceLabel && !pane.hideYAxis && hoverInfo.lineVisible !== false

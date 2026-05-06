@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useRef } from 'react';
 import type { VLineAnnotation, PaneComputedScale, XScale } from '../../charting/types';
 import useAnnotationDrag from './useAnnotationDrag';
 import { findClosestIndex, LINE_STYLE_MAP } from './annotationUtils';
-import { HIT_AREA_WIDTH, DRAG_HANDLE_SIZE, HANDLE_EDGE_OFFSET } from './annotationConstants';
+import { DRAG_HANDLE_SIZE, HANDLE_EDGE_OFFSET } from './annotationConstants';
+import { DragHandle, LineHitArea, SelectionGlow } from './primitives';
 
 export interface VLineAnnotationViewProps {
   annotation: VLineAnnotation;
@@ -137,11 +138,6 @@ const VLineAnnotationView: React.FC<VLineAnnotationViewProps> = ({
   const labelText = annotation.label || (annotation.showTime ? timeFormatter(annotation.time) : '');
   const labelWidth = Math.max(60, labelText.length * 7 + 16);
 
-  const selectionGlow = selected
-    ? (darkMode ? 'rgba(99, 179, 237, 0.4)' : 'rgba(59, 130, 246, 0.4)')
-    : 'transparent';
-  const handleColor = darkMode ? '#e2e8f0' : '#1f2937';
-
   return (
     <g
       className="vline-annotation"
@@ -149,29 +145,18 @@ const VLineAnnotationView: React.FC<VLineAnnotationViewProps> = ({
       onDoubleClick={handleDoubleClick}
       style={{ cursor: isDragging ? 'grabbing' : 'pointer' }}
     >
-      {/* Selection glow */}
       {selected && (
-        <line
+        <SelectionGlow
           x1={x}
           x2={x}
           y1={0}
           y2={paneHeight}
-          stroke={selectionGlow}
-          strokeWidth={annotation.lineWidth + 6}
-          strokeLinecap="round"
+          lineWidth={annotation.lineWidth}
+          darkMode={darkMode}
         />
       )}
 
-      {/* Hit area (invisible, wider for easier clicking) */}
-      <line
-        x1={x}
-        x2={x}
-        y1={0}
-        y2={paneHeight}
-        stroke="transparent"
-        strokeWidth={HIT_AREA_WIDTH}
-        style={{ cursor: 'pointer' }}
-      />
+      <LineHitArea x1={x} x2={x} y1={0} y2={paneHeight} />
 
       {/* Main line */}
       <line
@@ -212,27 +197,15 @@ const VLineAnnotationView: React.FC<VLineAnnotationViewProps> = ({
         </g>
       )}
 
-      {/* Drag handle (bottom) */}
       {selected && (
-        <g
+        <DragHandle
+          cx={x}
+          cy={paneHeight - DRAG_HANDLE_SIZE / 2 - HANDLE_EDGE_OFFSET}
+          axis="vertical"
+          accentColor={annotation.color}
+          darkMode={darkMode}
           onMouseDown={handleMouseDown}
-          style={{ cursor: 'ew-resize' }}
-        >
-          <rect
-            x={x - DRAG_HANDLE_SIZE / 2}
-            y={paneHeight - DRAG_HANDLE_SIZE - HANDLE_EDGE_OFFSET}
-            width={DRAG_HANDLE_SIZE}
-            height={DRAG_HANDLE_SIZE}
-            fill={handleColor}
-            fillOpacity={0.9}
-            rx={3}
-            stroke={annotation.color}
-            strokeWidth={2}
-          />
-          {/* Drag indicator lines (vertical) - derived from constants for consistent centering */}
-          <line x1={x - 2} x2={x - 2} y1={paneHeight - DRAG_HANDLE_SIZE * 0.75 - HANDLE_EDGE_OFFSET} y2={paneHeight - DRAG_HANDLE_SIZE * 0.25 - HANDLE_EDGE_OFFSET} stroke={annotation.color} strokeWidth={1.5} />
-          <line x1={x + 2} x2={x + 2} y1={paneHeight - DRAG_HANDLE_SIZE * 0.75 - HANDLE_EDGE_OFFSET} y2={paneHeight - DRAG_HANDLE_SIZE * 0.25 - HANDLE_EDGE_OFFSET} stroke={annotation.color} strokeWidth={1.5} />
-        </g>
+        />
       )}
     </g>
   );

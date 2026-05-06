@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useRef } from 'react';
 import type { BosLineAnnotation, PaneComputedScale, XScale } from '../../charting/types';
 import { LINE_STYLE_MAP, findClosestIndex } from './annotationUtils';
 import useAnnotationDrag from './useAnnotationDrag';
-import { HIT_AREA_WIDTH, DRAG_HANDLE_SIZE, HANDLE_EDGE_OFFSET, INDICATOR_LINE_START, INDICATOR_LINE_END } from './annotationConstants';
+import { DRAG_HANDLE_SIZE, HANDLE_EDGE_OFFSET } from './annotationConstants';
+import { DragHandle, LineHitArea, SelectionGlow } from './primitives';
 
 export interface BosLineAnnotationViewProps {
   annotation: BosLineAnnotation;
@@ -107,9 +108,6 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
   const typeLabelWidth = Math.max(50, typeLabelText.length * 7 + 16);
   const priceLabelWidth = Math.max(50, priceLabelText.length * 7 + 16);
 
-  const selectionGlow = selected ? (darkMode ? 'rgba(99, 179, 237, 0.4)' : 'rgba(59, 130, 246, 0.4)') : 'transparent';
-  const handleColor = darkMode ? '#e2e8f0' : '#1f2937';
-
   // Calculate start position based on annotation time (for partial-width lines)
   // Use findClosestIndex with compressedTimes fallback for compressGaps mode
   const xValue = findClosestIndex(annotation.time, compressedTimes, timeToIndex);
@@ -128,29 +126,18 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
       onDoubleClick={handleDoubleClick}
       style={{ cursor: isDragging ? 'grabbing' : 'pointer' }}
     >
-      {/* Selection glow */}
       {selected && (
-        <line
+        <SelectionGlow
           x1={lineStartX}
           x2={chartWidth}
           y1={y}
           y2={y}
-          stroke={selectionGlow}
-          strokeWidth={annotation.lineWidth + 6}
-          strokeLinecap="round"
+          lineWidth={annotation.lineWidth}
+          darkMode={darkMode}
         />
       )}
 
-      {/* Hit area (invisible, wider for easier clicking) */}
-      <line
-        x1={lineStartX}
-        x2={chartWidth}
-        y1={y}
-        y2={y}
-        stroke="transparent"
-        strokeWidth={HIT_AREA_WIDTH}
-        style={{ cursor: 'pointer' }}
-      />
+      <LineHitArea x1={lineStartX} x2={chartWidth} y1={y} y2={y} />
 
       {/* Main line */}
       <line
@@ -219,27 +206,15 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
         </g>
       )}
 
-      {/* Drag handle (left side, near the time marker) */}
       {selected && (
-        <g 
+        <DragHandle
+          cx={lineStartX + HANDLE_EDGE_OFFSET + DRAG_HANDLE_SIZE / 2}
+          cy={y}
+          axis="horizontal"
+          accentColor={color}
+          darkMode={darkMode}
           onMouseDown={handleMouseDown}
-          style={{ cursor: 'ns-resize' }}
-        >
-          <rect
-            x={lineStartX + HANDLE_EDGE_OFFSET}
-            y={y - DRAG_HANDLE_SIZE / 2}
-            width={DRAG_HANDLE_SIZE}
-            height={DRAG_HANDLE_SIZE}
-            fill={handleColor}
-            fillOpacity={0.9}
-            rx={3}
-            stroke={color}
-            strokeWidth={2}
-          />
-          {/* Drag indicator lines */}
-          <line x1={lineStartX + INDICATOR_LINE_START} x2={lineStartX + INDICATOR_LINE_END} y1={y - 2} y2={y - 2} stroke={color} strokeWidth={1.5} />
-          <line x1={lineStartX + INDICATOR_LINE_START} x2={lineStartX + INDICATOR_LINE_END} y1={y + 2} y2={y + 2} stroke={color} strokeWidth={1.5} />
-        </g>
+        />
       )}
     </g>
   );

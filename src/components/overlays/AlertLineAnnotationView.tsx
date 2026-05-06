@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import type { AlertLineAnnotation, PaneComputedScale } from '../../charting/types';
 import useAnnotationDrag from './useAnnotationDrag';
-import { LINE_STYLE_MAP, HIT_AREA_WIDTH, DRAG_HANDLE_SIZE, HANDLE_EDGE_OFFSET, INDICATOR_LINE_START, INDICATOR_LINE_END } from './annotationConstants';
+import { LINE_STYLE_MAP, DRAG_HANDLE_SIZE, HANDLE_EDGE_OFFSET } from './annotationConstants';
+import { DragHandle, LineHitArea, SelectionGlow } from './primitives';
 
 export interface AlertLineAnnotationViewProps {
   annotation: AlertLineAnnotation;
@@ -83,13 +84,6 @@ const AlertLineAnnotationView: React.FC<AlertLineAnnotationViewProps> = ({
   const baseColor = triggered ? '#64748b' : annotation.color;
   const lineOpacity = triggered ? 0.5 : 1;
 
-  const selectionGlow = selected
-    ? darkMode
-      ? 'rgba(99, 179, 237, 0.4)'
-      : 'rgba(59, 130, 246, 0.4)'
-    : 'transparent';
-  const handleColor = darkMode ? '#e2e8f0' : '#1f2937';
-
   // Direction indicator (small arrow on the left side)
   const dirArrowPoints =
     annotation.direction === 'above'
@@ -102,29 +96,18 @@ const AlertLineAnnotationView: React.FC<AlertLineAnnotationViewProps> = ({
       onClick={handleClick}
       style={{ cursor: isDragging ? 'grabbing' : 'pointer' }}
     >
-      {/* Selection glow */}
       {selected && (
-        <line
+        <SelectionGlow
           x1={0}
           x2={chartWidth}
           y1={y}
           y2={y}
-          stroke={selectionGlow}
-          strokeWidth={annotation.lineWidth + 6}
-          strokeLinecap="round"
+          lineWidth={annotation.lineWidth}
+          darkMode={darkMode}
         />
       )}
 
-      {/* Hit area (invisible, wider for easier clicking) */}
-      <line
-        x1={0}
-        x2={chartWidth}
-        y1={y}
-        y2={y}
-        stroke="transparent"
-        strokeWidth={HIT_AREA_WIDTH}
-        style={{ cursor: 'pointer' }}
-      />
+      <LineHitArea x1={0} x2={chartWidth} y1={y} y2={y} />
 
       {/* Main line */}
       <line
@@ -194,38 +177,15 @@ const AlertLineAnnotationView: React.FC<AlertLineAnnotationViewProps> = ({
         )}
       </g>
 
-      {/* Drag handle (left side) */}
       {selected && (
-        <g onMouseDown={handleMouseDown} style={{ cursor: 'ns-resize' }}>
-          <rect
-            x={HANDLE_EDGE_OFFSET}
-            y={y - DRAG_HANDLE_SIZE / 2}
-            width={DRAG_HANDLE_SIZE}
-            height={DRAG_HANDLE_SIZE}
-            fill={handleColor}
-            fillOpacity={0.9}
-            rx={3}
-            stroke={baseColor}
-            strokeWidth={2}
-          />
-          {/* Drag indicator lines - derived from constants for consistent centering */}
-          <line
-            x1={INDICATOR_LINE_START}
-            x2={INDICATOR_LINE_END}
-            y1={y - 2}
-            y2={y - 2}
-            stroke={baseColor}
-            strokeWidth={1.5}
-          />
-          <line
-            x1={INDICATOR_LINE_START}
-            x2={INDICATOR_LINE_END}
-            y1={y + 2}
-            y2={y + 2}
-            stroke={baseColor}
-            strokeWidth={1.5}
-          />
-        </g>
+        <DragHandle
+          cx={HANDLE_EDGE_OFFSET + DRAG_HANDLE_SIZE / 2}
+          cy={y}
+          axis="horizontal"
+          accentColor={baseColor}
+          darkMode={darkMode}
+          onMouseDown={handleMouseDown}
+        />
       )}
     </g>
   );

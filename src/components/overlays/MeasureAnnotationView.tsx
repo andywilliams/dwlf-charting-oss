@@ -6,7 +6,7 @@ import type {
 } from '../../charting/types';
 import useAnnotationDrag from './useAnnotationDrag';
 import { findClosestIndex, resolveX } from './annotationUtils';
-import { HANDLE_RADIUS, HANDLE_RADIUS_SMALL } from './annotationConstants';
+import { EndpointHandle } from './primitives';
 
 export interface MeasureAnnotationViewProps {
   annotation: MeasureAnnotation;
@@ -17,6 +17,7 @@ export interface MeasureAnnotationViewProps {
   darkMode?: boolean;
   selected?: boolean;
   onSelect?: (id: string | null) => void;
+  onDoubleClick?: (id: string) => void;
   onMove?: (id: string, update: Partial<MeasureAnnotation>) => void;
   /** Current chart timeframe for bar count estimation */
   currentTimeframe?: string;
@@ -47,25 +48,60 @@ const estimateBarDurationMs = (timeframe: string | undefined): number => {
   return 86400000; // daily
 };
 
-/** Format a time duration to a human-readable string */
-const formatTimeDiff = (ms: number): string => {
+/** Format a time duration to a human-readable string. Timeframe-aware: weekly
+ *  charts prefer weeks, sub-daily charts prefer hours+minutes, daily picks
+ *  whichever unit fits the magnitude. */
+const formatTimeDiff = (ms: number, timeframe?: string): string => {
   const abs = Math.abs(ms);
   const minutes = Math.floor(abs / 60000);
   const hours = Math.floor(abs / 3600000);
   const days = Math.floor(abs / 86400000);
+  const weeks = Math.floor(days / 7);
+  const tf = (timeframe || '').toLowerCase();
 
-  if (days > 0) {
-    const remainingHours = hours - days * 24;
-    if (remainingHours > 0 && days < 7) {
-      return `${days}d ${remainingHours}h`;
+  // Weekly: prefer weeks (+ remainder days for short spans).
+  if (tf.includes('week')) {
+    if (weeks >= 1) {
+      const remainingDays = days - weeks * 7;
+      if (remainingDays > 0 && weeks < 8) return `${weeks}w ${remainingDays}d`;
+      return `${weeks}w`;
     }
     return `${days}d`;
   }
-  if (hours > 0) {
-    const remainingMinutes = minutes - hours * 60;
-    if (remainingMinutes > 0) {
-      return `${hours}h ${remainingMinutes}m`;
+
+  // Sub-daily (hourly, 4h, minute timeframes): prefer hours + minutes.
+  const isSubDaily = tf.includes('hour') || tf === '1h' || tf === '60m'
+    || tf.includes('4h') || tf.includes('15m') || tf.includes('30m')
+    || tf.includes('5m') || (tf.includes('1m') && !tf.includes('1mo'));
+  if (isSubDaily) {
+    if (hours >= 1) {
+      const remainingMinutes = minutes - hours * 60;
+      if (remainingMinutes > 0 && hours < 48) return `${hours}h ${remainingMinutes}m`;
+      return `${hours}h`;
     }
+    return `${minutes}m`;
+  }
+
+  // Default (daily and unknown): pick the largest unit that fits.
+  // Only switch to months once it rounds to ≥ 2 (avoids "0mo" / "1mo" for
+  // 28–30 day spans, which read worse than the equivalent week count).
+  const months = Math.floor(days / 30.44);
+  if (months >= 2) {
+    return `${months}mo`;
+  }
+  if (weeks >= 2) {
+    const remainingDays = days - weeks * 7;
+    if (remainingDays > 0) return `${weeks}w ${remainingDays}d`;
+    return `${weeks}w`;
+  }
+  if (days >= 1) {
+    const remainingHours = hours - days * 24;
+    if (remainingHours > 0 && days < 7) return `${days}d ${remainingHours}h`;
+    return `${days}d`;
+  }
+  if (hours >= 1) {
+    const remainingMinutes = minutes - hours * 60;
+    if (remainingMinutes > 0) return `${hours}h ${remainingMinutes}m`;
     return `${hours}h`;
   }
   return `${minutes}m`;
@@ -97,6 +133,7 @@ const MeasureAnnotationView: React.FC<MeasureAnnotationViewProps> = ({
   darkMode = false,
   selected = false,
   onSelect,
+  onDoubleClick,
   onMove,
   currentTimeframe,
   timeToIndex,
@@ -129,6 +166,17 @@ const MeasureAnnotationView: React.FC<MeasureAnnotationViewProps> = ({
     e.stopPropagation();
     onSelect?.(annotation.id);
   }, [annotation.id, onSelect]);
+
+  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDoubleClick?.(annotation.id);
+  }, [annotation.id, onDoubleClick]);
+
+  // While the annotation is being placed (two-point preview), it's rendered
+  // alongside committed annotations as `_preview_measure`. We don't want this
+  // ghost shape to swallow the user's second click — that click needs to
+  // bubble to the chart canvas handler so the placement commits.
+  const isPreview = annotation.id?.startsWith('_preview') ?? false;
 
   // Convert pixel deltas to data coordinates
   const pixelToData = useCallback((
@@ -228,7 +276,7 @@ const MeasureAnnotationView: React.FC<MeasureAnnotationViewProps> = ({
     const timeDiffMs = Math.abs(annotation.time2 - annotation.time1);
     const barDuration = estimateBarDurationMs(currentTimeframe);
     const barCount = Math.max(1, Math.round(timeDiffMs / barDuration));
-    const timeStr = formatTimeDiff(timeDiffMs);
+    const timeStr = formatTimeDiff(timeDiffMs, currentTimeframe);
     const isPositive = priceDiff >= 0;
 
     return {
@@ -293,10 +341,16 @@ const MeasureAnnotationView: React.FC<MeasureAnnotationViewProps> = ({
   const handleColor = selected ? (darkMode ? '#63b3ed' : '#3b82f6') : borderColor;
 
   return (
-    <g 
-      className="measure-annotation" 
-      onClick={handleClick}
-      style={{ cursor: isDragging ? 'grabbing' : 'pointer' }}
+    <g
+      className="measure-annotation"
+      onClick={isPreview ? undefined : handleClick}
+      onDoubleClick={isPreview ? undefined : handleDoubleClick}
+      style={{
+        cursor: isDragging ? 'grabbing' : 'pointer',
+        // Make the preview ghost transparent to clicks so the second
+        // placement click reaches the chart canvas handler.
+        pointerEvents: isPreview ? 'none' : 'auto',
+      }}
     >
       {/* Selection glow for rectangle */}
       {selected && (
@@ -326,15 +380,20 @@ const MeasureAnnotationView: React.FC<MeasureAnnotationViewProps> = ({
         />
       )}
 
-      {/* Hit area for whole annotation drag (invisible, larger area) */}
+      {/* Body hit area — invisible, full interior. Selected: drives whole-
+          annotation drag. Unselected: a click selects. We attach onClick
+          directly so selection doesn't depend on the click bubbling through
+          the parent g (which can be fragile when intermediate layers stop
+          propagation). */}
       <rect
         x={rectLeft}
         y={rectTop}
         width={rectWidth}
         height={rectHeight}
         fill="transparent"
-        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
-        onMouseDown={handleWholeMouseDown}
+        style={{ cursor: selected ? (isDragging ? 'grabbing' : 'move') : 'pointer' }}
+        onClick={selected ? undefined : handleClick}
+        onMouseDown={selected ? handleWholeMouseDown : undefined}
       />
 
       {/* Semi-transparent fill rectangle */}
@@ -363,29 +422,21 @@ const MeasureAnnotationView: React.FC<MeasureAnnotationViewProps> = ({
         style={{ pointerEvents: 'none' }}
       />
 
-      {/* Endpoint 1 marker with drag handle */}
-      <circle 
-        cx={x1} 
-        cy={y1} 
-        r={selected ? HANDLE_RADIUS : HANDLE_RADIUS_SMALL} 
-        fill={handleColor} 
-        fillOpacity={0.9}
-        stroke={selected ? (darkMode ? '#1e293b' : '#f8fafc') : 'none'}
-        strokeWidth={selected ? 2 : 0}
-        style={{ cursor: isDraggingP1 ? 'grabbing' : 'grab' }}
+      {/* Endpoint markers — generous invisible hit zone via EndpointHandle */}
+      <EndpointHandle
+        cx={x1}
+        cy={y1}
+        accentColor={handleColor}
+        isDragging={isDraggingP1}
+        darkMode={darkMode}
         onMouseDown={handleP1MouseDown}
       />
-
-      {/* Endpoint 2 marker with drag handle */}
-      <circle 
-        cx={x2} 
-        cy={y2} 
-        r={selected ? HANDLE_RADIUS : HANDLE_RADIUS_SMALL} 
-        fill={handleColor} 
-        fillOpacity={0.9}
-        stroke={selected ? (darkMode ? '#1e293b' : '#f8fafc') : 'none'}
-        strokeWidth={selected ? 2 : 0}
-        style={{ cursor: isDraggingP2 ? 'grabbing' : 'grab' }}
+      <EndpointHandle
+        cx={x2}
+        cy={y2}
+        accentColor={handleColor}
+        isDragging={isDraggingP2}
+        darkMode={darkMode}
         onMouseDown={handleP2MouseDown}
       />
 

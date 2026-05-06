@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useRef } from 'react';
 import type { HLineAnnotation, PaneComputedScale } from '../../charting/types';
 import { LINE_STYLE_MAP } from './annotationUtils';
 import useAnnotationDrag from './useAnnotationDrag';
-import { HIT_AREA_WIDTH, DRAG_HANDLE_SIZE, HANDLE_EDGE_OFFSET, INDICATOR_LINE_START, INDICATOR_LINE_END } from './annotationConstants';
+import { DRAG_HANDLE_SIZE, HANDLE_EDGE_OFFSET } from './annotationConstants';
+import { DragHandle, LineHitArea, SelectionGlow } from './primitives';
 
 export interface HLineAnnotationViewProps {
   annotation: HLineAnnotation;
@@ -74,39 +75,25 @@ const HLineAnnotationView: React.FC<HLineAnnotationViewProps> = ({
   const labelText = annotation.label || (annotation.showPrice ? annotation.price.toFixed(2) : '');
   const labelWidth = Math.max(50, labelText.length * 7 + 16);
 
-  const selectionGlow = selected ? (darkMode ? 'rgba(99, 179, 237, 0.4)' : 'rgba(59, 130, 246, 0.4)') : 'transparent';
-  const handleColor = darkMode ? '#e2e8f0' : '#1f2937';
-
   return (
-    <g 
+    <g
       className="hline-annotation"
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       style={{ cursor: isDragging ? 'grabbing' : 'pointer' }}
     >
-      {/* Selection glow */}
       {selected && (
-        <line
+        <SelectionGlow
           x1={0}
           x2={chartWidth}
           y1={y}
           y2={y}
-          stroke={selectionGlow}
-          strokeWidth={annotation.lineWidth + 6}
-          strokeLinecap="round"
+          lineWidth={annotation.lineWidth}
+          darkMode={darkMode}
         />
       )}
 
-      {/* Hit area (invisible, wider for easier clicking) */}
-      <line
-        x1={0}
-        x2={chartWidth}
-        y1={y}
-        y2={y}
-        stroke="transparent"
-        strokeWidth={HIT_AREA_WIDTH}
-        style={{ cursor: 'pointer' }}
-      />
+      <LineHitArea x1={0} x2={chartWidth} y1={y} y2={y} />
 
       {/* Main line */}
       <line
@@ -147,27 +134,15 @@ const HLineAnnotationView: React.FC<HLineAnnotationViewProps> = ({
         </g>
       )}
 
-      {/* Drag handle (left side) */}
       {selected && (
-        <g 
+        <DragHandle
+          cx={HANDLE_EDGE_OFFSET + DRAG_HANDLE_SIZE / 2}
+          cy={y}
+          axis="horizontal"
+          accentColor={annotation.color}
+          darkMode={darkMode}
           onMouseDown={handleMouseDown}
-          style={{ cursor: 'ns-resize' }}
-        >
-          <rect
-            x={HANDLE_EDGE_OFFSET}
-            y={y - DRAG_HANDLE_SIZE / 2}
-            width={DRAG_HANDLE_SIZE}
-            height={DRAG_HANDLE_SIZE}
-            fill={handleColor}
-            fillOpacity={0.9}
-            rx={3}
-            stroke={annotation.color}
-            strokeWidth={2}
-          />
-          {/* Drag indicator lines - derived from constants for consistent centering */}
-          <line x1={INDICATOR_LINE_START} x2={INDICATOR_LINE_END} y1={y - 2} y2={y - 2} stroke={annotation.color} strokeWidth={1.5} />
-          <line x1={INDICATOR_LINE_START} x2={INDICATOR_LINE_END} y1={y + 2} y2={y + 2} stroke={annotation.color} strokeWidth={1.5} />
-        </g>
+        />
       )}
     </g>
   );

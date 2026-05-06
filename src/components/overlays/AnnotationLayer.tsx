@@ -21,6 +21,8 @@ import type {
   OrderBlockAnnotation,
   FairValueGapAnnotation,
   BosLineAnnotation,
+  LongPositionAnnotation,
+  ShortPositionAnnotation,
   PaneComputedScale,
   XScale,
 } from '../../charting/types';
@@ -44,6 +46,7 @@ import FibExtensionAnnotationView from './FibExtensionAnnotationView';
 import OrderBlockAnnotationView from './OrderBlockAnnotationView';
 import FairValueGapAnnotationView from './FairValueGapAnnotationView';
 import BosLineAnnotationView from './BosLineAnnotationView';
+import PositionAnnotationView from './PositionAnnotationView';
 
 export interface AnnotationLayerProps {
   annotations: Annotation[];
@@ -71,6 +74,10 @@ export interface AnnotationLayerProps {
   currentTimeframe?: string;
   /** Animation phase for controlling fade-in transitions */
   animationPhase?: string;
+  /** When false, the entire layer is pointer-events: none. Use during two-
+   *  point or brush placement so clicks always reach the chart canvas commit
+   *  handler instead of being absorbed by an existing annotation underneath. */
+  interactive?: boolean;
 }
 
 const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
@@ -92,6 +99,7 @@ const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
   timeFormatter,
   currentTimeframe,
   animationPhase,
+  interactive = true,
 }) => {
   // Filter annotations by timeframe visibility
   const visibleAnnotations = useMemo(() => {
@@ -142,6 +150,10 @@ const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
   }, [onAnnotationMove]);
 
   const handleMeasureMove = useCallback((id: string, update: Partial<MeasureAnnotation>) => {
+    onAnnotationMove?.(id, update);
+  }, [onAnnotationMove]);
+
+  const handlePositionMove = useCallback((id: string, update: Partial<LongPositionAnnotation | ShortPositionAnnotation>) => {
     onAnnotationMove?.(id, update);
   }, [onAnnotationMove]);
 
@@ -197,8 +209,10 @@ const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
         ray: 4, 
         hline: 5, 
         bos_line: 5, 
-        measure: 6, 
-        alert_line: 5 
+        measure: 6,
+        alert_line: 5,
+        long_position: 6,
+        short_position: 6,
       };
       const aOrder = typeOrder[a.type] ?? 2;
       const bOrder = typeOrder[b.type] ?? 2;
@@ -224,12 +238,23 @@ const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
   const layerOpacity = isAnimationEnabled ? (isVisiblePhase ? 1 : 0) : 1;
   const layerStyle = {
     opacity: layerOpacity,
-    pointerEvents: layerOpacity === 0 ? 'none' : 'auto',
+    pointerEvents: (layerOpacity === 0 || !interactive) ? 'none' : 'auto',
     transition: animationPhase === 'annotations' ? 'opacity 400ms ease-in-out' : 'none',
   };
 
+  // Stop mousedown propagation at the layer level so the chart-level pan
+  // handler never starts on annotation interactions. Without this, clicking
+  // an annotation body starts pan tracking, and any micro-movement during
+  // the click cancels the synthesized click event — so selection never fires
+  // unless the user is pixel-still. Inner handlers that *want* to react to
+  // mousedown (drag handles via useAnnotationDrag) already fire first and
+  // call stopPropagation themselves, so this is a no-op for them.
+  const stopMouseDown = useCallback((e: React.MouseEvent<SVGGElement>) => {
+    e.stopPropagation();
+  }, []);
+
   return (
-    <g className="annotation-layer" style={layerStyle}>
+    <g className="annotation-layer" style={layerStyle} onMouseDown={stopMouseDown}>
       {/* Render all annotations in sorted order so selected is always on top */}
       {sortedAnnotations.map(annotation => {
         if (annotation.type === 'hline') {
@@ -577,7 +602,30 @@ const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
               darkMode={darkMode}
               selected={annotation.id === selectedAnnotationId}
               onSelect={onAnnotationSelect}
+              onDoubleClick={onAnnotationDoubleClick}
               onMove={handleMeasureMove}
+              currentTimeframe={currentTimeframe}
+              timeToIndex={timeToIndex}
+              indexToTime={indexToTime}
+              dataLength={dataLength}
+              compressedTimes={compressedTimes}
+            />
+          );
+        }
+        if (annotation.type === 'long_position' || annotation.type === 'short_position') {
+          return (
+            <PositionAnnotationView
+              key={annotation.id}
+              annotation={annotation as LongPositionAnnotation | ShortPositionAnnotation}
+              xScale={xScale}
+              yScale={yScale}
+              chartWidth={chartWidth}
+              paneHeight={paneHeight}
+              darkMode={darkMode}
+              selected={annotation.id === selectedAnnotationId}
+              onSelect={onAnnotationSelect}
+              onDoubleClick={onAnnotationDoubleClick}
+              onMove={handlePositionMove}
               timeToIndex={timeToIndex}
               indexToTime={indexToTime}
               dataLength={dataLength}

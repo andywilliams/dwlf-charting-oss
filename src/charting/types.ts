@@ -154,7 +154,7 @@ export type XScale = ((value: number) => number) & {
 // Chart Annotations (Phase 1)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type AnnotationType = 'hline' | 'vline' | 'text' | 'trendline' | 'ray' | 'crossline' | 'rectangle' | 'emoji' | 'timerange' | 'arrow' | 'channel' | 'fibRetracement' | 'measure' | 'alert_line' | 'brush' | 'pitchfork' | 'fib_extension' | 'order_block' | 'fair_value_gap' | 'bos_line';
+export type AnnotationType = 'hline' | 'vline' | 'text' | 'trendline' | 'ray' | 'crossline' | 'rectangle' | 'emoji' | 'timerange' | 'arrow' | 'channel' | 'fibRetracement' | 'measure' | 'alert_line' | 'brush' | 'pitchfork' | 'fib_extension' | 'order_block' | 'fair_value_gap' | 'bos_line' | 'long_position' | 'short_position';
 export type LineStyle = 'solid' | 'dashed' | 'dotted';
 
 export interface AnnotationBase {
@@ -365,6 +365,38 @@ export interface MeasureAnnotation extends AnnotationBase {
   color: string;
 }
 
+/**
+ * Long/short risk-reward position tool. Renders as a stop zone (red), an
+ * entry line, and a target zone (green) bounded by [time1, time2].
+ *  - Long:  stop < entry < target  (visually: red below, green above).
+ *  - Short: target < entry < stop  (visually: green below, red above).
+ */
+export interface LongPositionAnnotation extends AnnotationBase {
+  type: 'long_position';
+  /** Left edge time */
+  time1: number;
+  /** Right edge time */
+  time2: number;
+  entryPrice: number;
+  stopPrice: number;
+  targetPrice: number;
+  /** Position size in account currency or quote units. Optional metadata for
+   *  the info badge — does not affect rendering geometry. */
+  size?: number;
+  label?: string;
+}
+
+export interface ShortPositionAnnotation extends AnnotationBase {
+  type: 'short_position';
+  time1: number;
+  time2: number;
+  entryPrice: number;
+  stopPrice: number;
+  targetPrice: number;
+  size?: number;
+  label?: string;
+}
+
 export interface BrushAnnotation extends AnnotationBase {
   type: 'brush';
   /** Ordered array of points forming the freehand path. */
@@ -517,4 +549,4 @@ export interface BosLineAnnotation extends AnnotationBase {
   showLabel: boolean;
 }
 
-export type Annotation = HLineAnnotation | VLineAnnotation | TextAnnotation | TrendLineAnnotation | RayAnnotation | CrossLineAnnotation | RectangleAnnotation | EmojiAnnotation | TimeRangeAnnotation | ArrowAnnotation | ChannelAnnotation | FibRetracementAnnotation | MeasureAnnotation | AlertLineAnnotation | BrushAnnotation | PitchforkAnnotation | FibExtensionAnnotation | OrderBlockAnnotation | FairValueGapAnnotation | BosLineAnnotation;// v1.1.1
+export type Annotation = HLineAnnotation | VLineAnnotation | TextAnnotation | TrendLineAnnotation | RayAnnotation | CrossLineAnnotation | RectangleAnnotation | EmojiAnnotation | TimeRangeAnnotation | ArrowAnnotation | ChannelAnnotation | FibRetracementAnnotation | MeasureAnnotation | AlertLineAnnotation | BrushAnnotation | PitchforkAnnotation | FibExtensionAnnotation | OrderBlockAnnotation | FairValueGapAnnotation | BosLineAnnotation | LongPositionAnnotation | ShortPositionAnnotation;// v1.1.1
