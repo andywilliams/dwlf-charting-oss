@@ -148,10 +148,17 @@ const PositionAnnotationView: React.FC<PositionAnnotationViewProps> = ({
     if (Number.isFinite(next)) onMove?.(annotation.id, { entryPrice: next });
   }, [annotation.id, onMove, screenToPrice]);
 
+  // The right-edge bar drags whichever time field is visually on the right
+  // at drag start (time2 in normal orientation; time1 if a previous drag
+  // pushed time2 to the left of time1). Without this, dragging through the
+  // opposite boundary attaches the visible handle to the hidden field.
   const moveRightEdge = useCallback((e: MouseEvent) => {
     const dx = e.clientX - dragStartPos.current.x;
-    const next = screenToTime(dragStartData.current.time2, dx);
-    if (Number.isFinite(next)) onMove?.(annotation.id, { time2: next });
+    const start = dragStartData.current;
+    const rightField: 'time1' | 'time2' = start.time2 >= start.time1 ? 'time2' : 'time1';
+    const startTime = rightField === 'time2' ? start.time2 : start.time1;
+    const next = screenToTime(startTime, dx);
+    if (Number.isFinite(next)) onMove?.(annotation.id, { [rightField]: next });
   }, [annotation.id, onMove, screenToTime]);
 
   const moveBody = useCallback((e: MouseEvent) => {
@@ -366,7 +373,10 @@ const PositionAnnotationView: React.FC<PositionAnnotationViewProps> = ({
         onMouseDown={entryMouseDown}
       />
 
-      {/* Top edge hit area / drag (target for long, stop for short) */}
+      {/* Top/bottom edges bind to whichever price field is currently at that
+          screen position, not by long/short direction. Without this, dragging
+          target through stop (or vice versa) leaves the visible top handle
+          editing the hidden bottom price and the resize appears stuck. */}
       <line
         x1={left}
         x2={right}
@@ -375,10 +385,8 @@ const PositionAnnotationView: React.FC<PositionAnnotationViewProps> = ({
         stroke="transparent"
         strokeWidth={14}
         style={{ cursor: isDraggingTarget || isDraggingStop ? 'grabbing' : 'ns-resize' }}
-        onMouseDown={isLong ? targetMouseDown : stopMouseDown}
+        onMouseDown={annotation.targetPrice >= annotation.stopPrice ? targetMouseDown : stopMouseDown}
       />
-
-      {/* Bottom edge hit area / drag */}
       <line
         x1={left}
         x2={right}
@@ -387,7 +395,7 @@ const PositionAnnotationView: React.FC<PositionAnnotationViewProps> = ({
         stroke="transparent"
         strokeWidth={14}
         style={{ cursor: isDraggingTarget || isDraggingStop ? 'grabbing' : 'ns-resize' }}
-        onMouseDown={isLong ? stopMouseDown : targetMouseDown}
+        onMouseDown={annotation.targetPrice >= annotation.stopPrice ? stopMouseDown : targetMouseDown}
       />
 
       {/* Right-edge time bar — always visible (not just when selected) so
