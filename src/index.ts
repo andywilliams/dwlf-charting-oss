@@ -40,6 +40,8 @@ export type {
   OrderBlockAnnotation,
   FairValueGapAnnotation,
   BosLineAnnotation,
+  LongPositionAnnotation,
+  ShortPositionAnnotation,
   Annotation,
 } from './charting/types';
 
