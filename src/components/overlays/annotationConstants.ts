@@ -9,19 +9,19 @@ export const LINE_STYLE_MAP: Record<string, string | undefined> = {
 // Larger values = easier to grab, especially on touch devices.
 
 /** Radius for circular endpoint handles (e.g., trendline endpoints) */
-export const HANDLE_RADIUS = 12;
+export const HANDLE_RADIUS = 16;
 
 /** Radius for smaller secondary handles (e.g., midpoint drag) */
-export const HANDLE_RADIUS_SMALL = 10;
+export const HANDLE_RADIUS_SMALL = 12;
 
 /** Size for square corner handles (e.g., rectangle corners) */
-export const CORNER_SIZE = 16;
+export const CORNER_SIZE = 18;
 
 /** Width of invisible hit area for line-based annotations */
-export const HIT_AREA_WIDTH = 32;
+export const HIT_AREA_WIDTH = 44;
 
 /** Padding around rectangular annotations for easier click target */
-export const RECT_HIT_PADDING = 8;
+export const RECT_HIT_PADDING = 12;
 
 /** Size of rectangular drag handles (e.g., HLine drag grip) */
 export const DRAG_HANDLE_SIZE = 24;
