@@ -527,8 +527,14 @@ export interface FairValueGapAnnotation extends AnnotationBase {
  */
 export interface BosLineAnnotation extends AnnotationBase {
   type: 'bos_line';
-  /** Time at which the break occurred */
+  /** Time at which the break occurred (right end of the segment) */
   time: number;
+  /**
+   * Optional start time — the swing/pivot that was broken. When set, the line
+   * is drawn as a bounded horizontal segment from `startTime` to `time` (the
+   * SMC convention) instead of extending to the right edge of the chart.
+   */
+  startTime?: number;
   /** Price level of the break */
   price: number;
   /** Type: BOS or ChoCH */

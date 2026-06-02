@@ -104,15 +104,24 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
   
   const typeLabelText = annotation.bosType === 'ChoCH' ? 'ChoCH' : 'BOS';
   const priceLabelText = annotation.price.toFixed(2);
-  
-  const typeLabelWidth = Math.max(50, typeLabelText.length * 7 + 16);
+
   const priceLabelWidth = Math.max(50, priceLabelText.length * 7 + 16);
 
-  // Calculate start position based on annotation time (for partial-width lines)
-  // Use findClosestIndex with compressedTimes fallback for compressGaps mode
-  const xValue = findClosestIndex(annotation.time, compressedTimes, timeToIndex);
-  const startX = xValue !== undefined ? xScale(xValue) : xScale(annotation.time);
-  const lineStartX = Number.isFinite(startX) ? startX : 0;
+  // Resolve a raw timestamp to a pixel x (respecting compressGaps mode).
+  const resolveX = (t: number): number | null => {
+    const xv = findClosestIndex(t, compressedTimes, timeToIndex);
+    const px = xv !== undefined ? xScale(xv) : xScale(t);
+    return Number.isFinite(px) ? px : null;
+  };
+
+  // When a startTime is supplied the line is a bounded segment (the broken
+  // swing → the break candle, the SMC convention); otherwise it falls back to
+  // the legacy full-width level line extending to the right edge of the chart.
+  const breakX = resolveX(annotation.time) ?? 0;
+  const startXOpt = annotation.startTime != null ? resolveX(annotation.startTime) : null;
+  const hasSegment = startXOpt !== null;
+  const lineStartX = hasSegment ? (startXOpt as number) : breakX;
+  const lineEndX = hasSegment ? breakX : chartWidth;
 
   // For unconfirmed BOS, use dashed style to indicate pending
   const lineStyle = annotation.confirmed ? strokeDasharray : LINE_STYLE_MAP.dashed;
@@ -129,7 +138,7 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
       {selected && (
         <SelectionGlow
           x1={lineStartX}
-          x2={chartWidth}
+          x2={lineEndX}
           y1={y}
           y2={y}
           lineWidth={annotation.lineWidth}
@@ -137,12 +146,12 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
         />
       )}
 
-      <LineHitArea x1={lineStartX} x2={chartWidth} y1={y} y2={y} />
+      <LineHitArea x1={lineStartX} x2={lineEndX} y1={y} y2={y} />
 
       {/* Main line */}
       <line
         x1={lineStartX}
-        x2={chartWidth}
+        x2={lineEndX}
         y1={y}
         y2={y}
         stroke={color}
@@ -152,31 +161,21 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
         opacity={lineOpacity}
       />
 
-      {/* Type label badge (BOS/ChoCH) on left side */}
+      {/* Type label (BOS/ChoCH) — subtle line-coloured text just above the
+          line, anchored at the break end of the segment (no filled badge). */}
       {annotation.showLabel && (
-        <g>
-          <rect
-            x={lineStartX + 4}
-            y={y - 10}
-            width={typeLabelWidth}
-            height={20}
-            fill={color}
-            fillOpacity={0.9}
-            rx={4}
-          />
-          <text
-            x={lineStartX + 4 + typeLabelWidth / 2}
-            y={y}
-            dy="0.35em"
-            textAnchor="middle"
-            fontSize={10}
-            fill="white"
-            fontWeight={600}
-            style={{ pointerEvents: 'none', userSelect: 'none' }}
-          >
-            {typeLabelText}
-          </text>
-        </g>
+        <text
+          x={hasSegment ? breakX - 4 : lineStartX + 4}
+          y={y - 5}
+          textAnchor={hasSegment ? 'end' : 'start'}
+          fontSize={10}
+          fill={color}
+          fontWeight={600}
+          opacity={lineOpacity}
+          style={{ pointerEvents: 'none', userSelect: 'none' }}
+        >
+          {typeLabelText}
+        </text>
       )}
 
       {/* Price label badge on right */}
