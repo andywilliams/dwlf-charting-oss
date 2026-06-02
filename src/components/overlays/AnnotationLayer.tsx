@@ -1253,6 +1253,7 @@ export const createBosLineAnnotation = (
     price,
     bosType,
     direction,
+    startTime: options.startTime,
     confirmed: options.confirmed ?? true,
     color: options.color ?? defaultColor,
     lineStyle: options.lineStyle ?? 'solid',
