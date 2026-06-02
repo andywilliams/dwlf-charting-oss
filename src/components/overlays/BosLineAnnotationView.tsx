@@ -178,11 +178,12 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
         </text>
       )}
 
-      {/* Price label badge on right */}
+      {/* Price label badge — sits at the segment end when bounded, else the
+          chart's right edge (legacy full-width line). */}
       {annotation.showPrice && (
         <g>
           <rect
-            x={chartWidth - priceLabelWidth - 8}
+            x={hasSegment ? breakX + 6 : chartWidth - priceLabelWidth - 8}
             y={y - 10}
             width={priceLabelWidth}
             height={20}
@@ -191,7 +192,7 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
             rx={4}
           />
           <text
-            x={chartWidth - priceLabelWidth / 2 - 8}
+            x={hasSegment ? breakX + 6 + priceLabelWidth / 2 : chartWidth - priceLabelWidth / 2 - 8}
             y={y}
             dy="0.35em"
             textAnchor="middle"
