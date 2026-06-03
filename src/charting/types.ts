@@ -513,11 +513,13 @@ export interface FairValueGapAnnotation extends AnnotationBase {
   color?: string;
   /** Fill opacity (0-1) */
   fillOpacity: number;
+  /** Border/stroke opacity (0-1). Optional — defaults to 1 (or 0.3 when filled). */
+  strokeOpacity?: number;
   /** Border line style */
   lineStyle: LineStyle;
   /** Border line width */
   lineWidth: number;
-  /** Optional label (e.g., "FVG") */
+  /** Optional label (e.g., "FVG"). Pass '' to suppress the label entirely. */
   label?: string;
 }
 
