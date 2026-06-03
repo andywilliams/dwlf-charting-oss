@@ -35,15 +35,16 @@ const getColor = (annotation: OrderBlockAnnotation): string => {
   return annotation.color || DIRECTION_COLORS[annotation.direction];
 };
 
-/** Get fill opacity based on state */
+/** Fill opacity: the consumer drives it directly (used to age-fade ghost
+    blocks), so honour the passed value. */
 const getFillOpacity = (annotation: OrderBlockAnnotation): number => {
-  if (annotation.state === 'mitigated') return 0.15;
-  if (annotation.state === 'tested') return annotation.fillOpacity * 0.7;
   return annotation.fillOpacity;
 };
 
-/** Get stroke opacity based on state */
+/** Stroke opacity: honour an explicit value (age-faded ghosts), else fall back
+    to the state defaults. */
 const getStrokeOpacity = (annotation: OrderBlockAnnotation): number => {
+  if (typeof annotation.strokeOpacity === 'number') return annotation.strokeOpacity;
   if (annotation.state === 'mitigated') return 0.3;
   return 1;
 };
@@ -160,8 +161,17 @@ const OrderBlockAnnotationView: React.FC<OrderBlockAnnotationViewProps> = ({
 
   if ([x, yHigh, yLow].some(v => !Number.isFinite(v))) return null;
 
-  const left = x - 20; // Draw as a narrow zone around the candle time
-  const right = x + 20;
+  const left = x - 20; // start just before the order-block candle
+  // Extend to endTime when provided (active → live edge, ghost → fill point);
+  // otherwise keep the legacy narrow box. Clamp to the visible right edge.
+  let right = x + 20;
+  if (annotation.endTime != null) {
+    const endXValue = getXValue(annotation.endTime);
+    const endX = xScale(endXValue ?? annotation.endTime);
+    if (Number.isFinite(endX)) {
+      right = Math.max(left + 6, Math.min(endX, chartWidth));
+    }
+  }
   const top = Math.min(yHigh, yLow);
   const bottom = Math.max(yHigh, yLow);
   const rectWidth = right - left;
@@ -177,7 +187,8 @@ const OrderBlockAnnotationView: React.FC<OrderBlockAnnotationViewProps> = ({
 
   const selectionColor = darkMode ? 'rgba(99, 179, 237, 0.4)' : 'rgba(59, 130, 246, 0.4)';
 
-  const labelText = annotation.label || (annotation.direction === 'bullish' ? 'Buy OB' : 'Sell OB');
+  // `??` (not `||`) so an explicit empty label suppresses the tag (used on ghosts).
+  const labelText = annotation.label ?? (annotation.direction === 'bullish' ? 'Buy OB' : 'Sell OB');
 
   return (
     <g
@@ -228,31 +239,23 @@ const OrderBlockAnnotationView: React.FC<OrderBlockAnnotationViewProps> = ({
         style={{ cursor: selected ? (isDragging ? 'grabbing' : 'move') : 'pointer' }}
       />
 
-      {/* Label */}
+      {/* Label — subtle text anchored to the box's top-right corner so it
+          clears the order-block candle on the left. Clamped to the visible
+          right edge. Matches the FVG / BOS-ChoCH label treatment. */}
       {labelText && (
-        <g>
-          <rect
-            x={left + 2}
-            y={top + 2}
-            width={Math.max(50, labelText.length * 7)}
-            height={16}
-            fill={color}
-            fillOpacity={0.9}
-            rx={2}
-          />
-          <text
-            x={left + 2 + Math.max(50, labelText.length * 7) / 2}
-            y={top + 10}
-            dy="0.35em"
-            textAnchor="middle"
-            fontSize={10}
-            fill="white"
-            fontWeight={600}
-            style={{ pointerEvents: 'none', userSelect: 'none' }}
-          >
-            {labelText}
-          </text>
-        </g>
+        <text
+          x={Math.min(right, chartWidth) - 4}
+          y={top + 3}
+          dy="0.7em"
+          textAnchor="end"
+          fontSize={9}
+          fill={color}
+          fillOpacity={0.75}
+          fontWeight={500}
+          style={{ pointerEvents: 'none', userSelect: 'none' }}
+        >
+          {labelText}
+        </text>
       )}
 
       {/* Price range display when selected */}

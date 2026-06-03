@@ -471,6 +471,10 @@ export interface OrderBlockAnnotation extends AnnotationBase {
   type: 'order_block';
   /** Time of the order block candle */
   time: number;
+  /** Optional right edge — the box extends from `time` to here. Omit for the
+      legacy narrow-box behaviour. Use the live edge for active zones, or the
+      mitigation time to terminate a spent/ghost block at its fill. */
+  endTime?: number;
   /** High price of the order block candle */
   high: number;
   /** Low price of the order block candle */
@@ -483,11 +487,13 @@ export interface OrderBlockAnnotation extends AnnotationBase {
   color?: string;
   /** Fill opacity (0-1) */
   fillOpacity: number;
+  /** Border/stroke opacity (0-1). Optional — defaults to 1 (or 0.3 mitigated). */
+  strokeOpacity?: number;
   /** Border line style */
   lineStyle: LineStyle;
   /** Border line width */
   lineWidth: number;
-  /** Optional label (e.g., "OB", "Buy OB") */
+  /** Optional label (e.g., "OB", "Buy OB"). Pass '' to suppress the label. */
   label?: string;
 }
 
