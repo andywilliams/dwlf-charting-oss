@@ -41,8 +41,10 @@ const getFillOpacity = (annotation: FairValueGapAnnotation): number => {
   return annotation.fillOpacity;
 };
 
-/** Get stroke opacity based on filled state */
+/** Get stroke opacity: honour an explicit value (used to age-fade ghost gaps),
+    else fall back to the filled/active defaults. */
 const getStrokeOpacity = (annotation: FairValueGapAnnotation): number => {
+  if (typeof annotation.strokeOpacity === 'number') return annotation.strokeOpacity;
   if (annotation.filled) return 0.3;
   return 1;
 };
@@ -184,7 +186,9 @@ const FairValueGapAnnotationView: React.FC<FairValueGapAnnotationViewProps> = ({
 
   const selectionColor = darkMode ? 'rgba(99, 179, 237, 0.4)' : 'rgba(59, 130, 246, 0.4)';
 
-  const labelText = annotation.label || 'FVG';
+  // `?? 'FVG'` (not `||`) so an explicit empty label suppresses the tag, while
+  // an omitted label still defaults to 'FVG'.
+  const labelText = annotation.label ?? 'FVG';
 
   return (
     <g
