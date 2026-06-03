@@ -235,31 +235,25 @@ const FairValueGapAnnotationView: React.FC<FairValueGapAnnotationViewProps> = ({
         style={{ cursor: selected ? (isDragging ? 'grabbing' : 'move') : 'pointer' }}
       />
 
-      {/* Label */}
+      {/* Label — subtle text anchored to the box's top-right corner so it
+          clears the formation candles on the left of the box. No filled pill;
+          coloured text at reduced opacity, matching the BOS/ChoCH labels.
+          Clamped to the visible right edge so it stays on-screen when the box
+          extends past the chart. */}
       {labelText && (
-        <g>
-          <rect
-            x={left + 2}
-            y={top + 2}
-            width={Math.max(50, labelText.length * 7)}
-            height={16}
-            fill={color}
-            fillOpacity={0.9}
-            rx={2}
-          />
-          <text
-            x={left + 2 + Math.max(50, labelText.length * 7) / 2}
-            y={top + 10}
-            dy="0.35em"
-            textAnchor="middle"
-            fontSize={10}
-            fill="white"
-            fontWeight={600}
-            style={{ pointerEvents: 'none', userSelect: 'none' }}
-          >
-            {labelText}
-          </text>
-        </g>
+        <text
+          x={Math.min(right, chartWidth) - 4}
+          y={top + 3}
+          dy="0.7em"
+          textAnchor="end"
+          fontSize={9}
+          fill={color}
+          fillOpacity={0.75}
+          fontWeight={500}
+          style={{ pointerEvents: 'none', userSelect: 'none' }}
+        >
+          {labelText}
+        </text>
       )}
 
       {/* Price range display when selected */}
