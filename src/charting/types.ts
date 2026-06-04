@@ -553,13 +553,17 @@ export interface BosLineAnnotation extends AnnotationBase {
   confirmed: boolean;
   /** Color (auto-computed from direction if not provided) */
   color?: string;
+  /** Custom type-label text. Falls back to BOS/ChoCH (from bosType) when unset,
+   *  so the bounded-segment primitive can be reused for other level types
+   *  (e.g. liquidity pools labelled BSL/SSL). */
+  label?: string;
   /** Line style */
   lineStyle: LineStyle;
   /** Line width */
   lineWidth: number;
   /** Show price label */
   showPrice: boolean;
-  /** Show type label (BOS/ChoCH) */
+  /** Show type label (BOS/ChoCH, or the custom `label`) */
   showLabel: boolean;
 }
 

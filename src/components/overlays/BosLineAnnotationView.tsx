@@ -102,7 +102,7 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
   const color = getColor(annotation);
   const strokeDasharray = getLineStyle(annotation);
   
-  const typeLabelText = annotation.bosType === 'ChoCH' ? 'ChoCH' : 'BOS';
+  const typeLabelText = annotation.label ?? (annotation.bosType === 'ChoCH' ? 'ChoCH' : 'BOS');
   const priceLabelText = annotation.price.toFixed(2);
 
   const priceLabelWidth = Math.max(50, priceLabelText.length * 7 + 16);
