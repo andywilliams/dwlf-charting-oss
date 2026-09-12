@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import type { FairValueGapAnnotation, PaneComputedScale, XScale } from '../../charting/types';
-import { findClosestIndex, LINE_STYLE_MAP } from './annotationUtils';
+import { findClosestIndex, LINE_STYLE_MAP, screenToTimeDelta as screenToTimeDeltaFor } from './annotationUtils';
 import useAnnotationDrag from './useAnnotationDrag';
 import { RECT_HIT_PADDING } from './annotationConstants';
 
@@ -85,22 +85,15 @@ const FairValueGapAnnotationView: React.FC<FairValueGapAnnotationViewProps> = ({
   }, [yScale, xScale, timeToIndex, indexToTime, compressedTimes, dataLength]);
 
   /** Convert a screen pixel delta to a time delta, handling compressGaps mode */
-  const screenToTimeDelta = useCallback((startTime: number, deltaX: number): number => {
-    const xS = xScaleRef.current;
-    const t2i = timeToIndexRef.current;
-    const i2t = indexToTimeRef.current;
-    const ct = compressedTimesRef.current;
-    const dlCurrent = dataLengthRef.current;
-
-    const startXValue = (t2i && i2t && dlCurrent > 0 && ct)
-      ? ((t2i(startTime) !== undefined ? t2i(startTime) : (t2i(findClosestTime(ct, startTime)) ?? startTime)))
-      : startTime;
-    const newX = xS(startXValue as number) + deltaX;
-    if (!xS.invert) return startTime;
-    const inverted = xS.invert(newX);
-    const rawValue = inverted instanceof Date ? inverted.getTime() : inverted as number;
-    return (t2i && i2t && dlCurrent > 0 && ct) ? i2t(Math.round(rawValue)) : rawValue;
-  }, []);
+  const screenToTimeDelta = useCallback((startTime: number, deltaX: number): number => screenToTimeDeltaFor(
+    startTime,
+    deltaX,
+    xScaleRef.current,
+    timeToIndexRef.current,
+    indexToTimeRef.current,
+    dataLengthRef.current,
+    compressedTimesRef.current,
+  ), []);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
