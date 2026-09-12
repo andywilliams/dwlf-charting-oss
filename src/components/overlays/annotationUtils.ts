@@ -23,6 +23,39 @@ export const findClosestIndex = (
 };
 
 /**
+ * Convert a screen-pixel delta into a time delta while dragging an annotation.
+ *
+ * The fallback arm is the interesting half. With `compressGaps` on, a start time that is
+ * not itself a data point has no index, so it is snapped to the nearest one before being
+ * converted. Two copies of this function called `findClosestTime` there without importing
+ * it — a ReferenceError reachable by dragging an annotation whose start does not sit on a
+ * bar. It lives here now so there is one copy to get right, and so that arm can be tested.
+ */
+export const screenToTimeDelta = (
+  startTime: number,
+  deltaX: number,
+  xScale: XScale,
+  timeToIndex: ((t: number) => number | undefined) | undefined,
+  indexToTime: ((i: number) => number) | undefined,
+  dataLength: number,
+  compressedTimes: number[] | undefined,
+): number => {
+  const compressed = Boolean(timeToIndex && indexToTime && dataLength > 0 && compressedTimes);
+
+  const startXValue = compressed && timeToIndex && compressedTimes
+    ? (timeToIndex(startTime) !== undefined
+      ? timeToIndex(startTime)
+      : (timeToIndex(findClosestTime(compressedTimes, startTime)) ?? startTime))
+    : startTime;
+
+  const newX = xScale(startXValue as number) + deltaX;
+  if (!xScale.invert) return startTime;
+  const inverted = xScale.invert(newX);
+  const rawValue = inverted instanceof Date ? inverted.getTime() : inverted as number;
+  return compressed && indexToTime ? indexToTime(Math.round(rawValue)) : rawValue;
+};
+
+/**
  * Resolve a time value to an x-pixel coordinate, handling compressGaps mode.
  */
 export const resolveX = (
