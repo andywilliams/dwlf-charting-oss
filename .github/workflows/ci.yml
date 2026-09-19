@@ -54,5 +54,11 @@ jobs:
       - name: Install dependencies without scripts
         run: npm ci --ignore-scripts
 
+      # The thing this guards against is lockfile drift, and lockfile drift arrives
+      # as a pull request. Running it only in release.yml means the PR that breaks
+      # publishing is green and the release after it is red, on main.
+      - name: Check this tree can publish via trusted publishing
+        run: node .github/scripts/check-trusted-publishing.mjs
+
       - name: Build
         run: npm run build
