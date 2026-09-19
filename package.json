@@ -68,10 +68,6 @@
     "prop-types": "^15.8.1"
   },
   "devDependencies": {
-    "@semantic-release/commit-analyzer": "^13.0.0",
-    "@semantic-release/github": "^10.1.4",
-    "@semantic-release/npm": "^13.1.1",
-    "@semantic-release/release-notes-generator": "^14.0.1",
     "@types/d3": "^7.4.3",
     "@types/node": "^20.16.10",
     "@types/react": "^18.3.12",
@@ -80,7 +76,7 @@
     "eslint": "^8.57.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "semantic-release": "^23.1.1",
+    "semantic-release": "^25.0.9",
     "typescript": "^5.6.3",
     "vite": "^6.0.0",
     "vite-plugin-dts": "^4.5.4",

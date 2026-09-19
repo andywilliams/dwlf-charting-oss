@@ -12,7 +12,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 24 is what release.yml publishes from, so what ships is built here first.
+        # 24 is the version release.yml publishes from, so a pull request builds it
+        # before merge. Nothing sequences this workflow ahead of release.yml: on a
+        # push to main they run in parallel, and the tarball is built inside the
+        # release job by `prepublishOnly`, not here.
         # 20 keeps a version below that exercised, so the release runtime is not the
         # only Node this package is ever built on. package.json claims `engines`
         # ">=18", which neither of these verifies — DWLF-263.
