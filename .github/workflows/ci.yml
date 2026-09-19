@@ -34,3 +34,25 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # release.yml installs with --ignore-scripts, because `id-token: write` is
+  # job-scoped and a dependency lifecycle script running there could trade the ID
+  # token for publish rights. That is a different tree from the one `quality`
+  # builds, and it is the tree the published tarball is built in. Verify it here,
+  # at pull-request time, rather than discovering it during a release.
+  release-tree:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies without scripts
+        run: npm ci --ignore-scripts
+
+      - name: Build
+        run: npm run build

@@ -52,6 +52,14 @@ jobs:
       - name: Check this tree can publish via trusted publishing
         run: node .github/scripts/check-trusted-publishing.mjs
 
+      # semantic-release creates and pushes the tag BEFORE it calls the publish
+      # plugins, and `npm publish` builds the tarball through `prepublishOnly`. A
+      # build that fails there strands a pushed tag on main with nothing on the
+      # registry. Building first, in the same scripts-disabled tree, turns that into
+      # a failure before any tag exists.
+      - name: Build
+        run: npm run build
+
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

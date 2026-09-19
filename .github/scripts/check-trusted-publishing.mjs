@@ -5,11 +5,12 @@
 // BOTH of them live in package-lock.json rather than in any workflow file, so a
 // routine lockfile regeneration can break either one without touching release.yml.
 //
-//   1. semantic-release resolves plugin names from its OWN directory first, so the
-//      @semantic-release/npm that executes is whichever copy sits inside its
-//      dependency tree — not one hoisted to the project root. Only v13+ establishes
-//      the OIDC context. v12 goes straight to NPM_TOKEN, which this job does not
-//      have, and fails at verifyConditions.
+//   1. semantic-release resolves plugin names from its OWN directory and walks up,
+//      so a copy nested inside its dependency tree shadows the project root's.
+//      Whichever one wins has to be v13+, because only v13+ establishes the OIDC
+//      context; v12 goes straight to NPM_TOKEN, which this job does not have, and
+//      fails at verifyConditions. Raising a root pin does not help while a stale
+//      copy is nested below semantic-release — raise semantic-release itself.
 //   2. That plugin publishes by shelling out to `npm publish` through execa with
 //      `preferLocal: true`, which prepends node_modules/.bin to PATH. So the binary
 //      that authenticates is the lockfile's npm, not the runner's Node-bundled one,
@@ -20,9 +21,11 @@
 
 import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+const PLUGIN = '@semantic-release/npm';
+const MIN_PLUGIN = '13.0.0';
 const MIN_NPM = '11.5.1';
 const PLUGINS_DIR = join(process.cwd(), 'node_modules/semantic-release/lib/plugins/');
 
@@ -31,8 +34,10 @@ function fail(message) {
   process.exit(1);
 }
 
+const rel = (p) => p.replace(`${process.cwd()}/`, '');
+
 // npm and plugin versions are plain x.y.z. Anything else is not something to guess
-// about: refuse rather than compare wrongly and report a pass.
+// about: return null so the caller refuses rather than comparing wrongly.
 function atLeast(actual, minimum) {
   const parse = (v) => {
     const parts = String(v).trim().split('.');
@@ -48,46 +53,68 @@ function atLeast(actual, minimum) {
   return true;
 }
 
-// 1. The plugin semantic-release will actually load.
-let pluginDir;
-try {
-  pluginDir = dirname(createRequire(PLUGINS_DIR).resolve('@semantic-release/npm'));
-} catch (error) {
-  fail(`could not resolve @semantic-release/npm the way semantic-release does, from ${PLUGINS_DIR} — ${error.message}`);
+// The plugin blocks `./package.json` through its `exports`, and its entry point is
+// not guaranteed to sit at the package root, so walk up from the resolved entry to
+// the nearest package.json that actually names this package.
+function manifestFor(entry) {
+  let dir = dirname(entry);
+  for (;;) {
+    const candidate = join(dir, 'package.json');
+    if (existsSync(candidate)) {
+      try {
+        const pkg = JSON.parse(readFileSync(candidate, 'utf8'));
+        if (pkg.name === PLUGIN) return { dir, version: pkg.version };
+      } catch {
+        // Not this one; keep walking.
+      }
+    }
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
 }
 
-const pluginVersion = JSON.parse(
-  execFileSync(process.execPath, ['-p', `JSON.stringify(require(${JSON.stringify(join(pluginDir, 'package.json'))}))`], {
-    encoding: 'utf8',
-  }),
-).version;
+// 1. The plugin semantic-release will actually load.
+let entry;
+try {
+  entry = createRequire(PLUGINS_DIR).resolve(PLUGIN);
+} catch (error) {
+  fail(`could not resolve ${PLUGIN} the way semantic-release does, from ${rel(PLUGINS_DIR)} — ${error.message}`);
+}
 
-const where = pluginDir.replace(`${process.cwd()}/`, '');
+const manifest = manifestFor(entry);
+if (!manifest) {
+  fail(`resolved ${PLUGIN} to ${rel(entry)} but found no package.json naming it above that path, so its version is unknown.`);
+}
 
-if (!existsSync(join(pluginDir, 'lib/trusted-publishing'))) {
+const pluginOk = atLeast(manifest.version, MIN_PLUGIN);
+if (pluginOk === null) {
+  fail(`could not read a version from ${rel(manifest.dir)}/package.json (got "${manifest.version}"), so OIDC support is unknown.`);
+}
+if (!pluginOk) {
   fail(
-    `semantic-release loads @semantic-release/npm ${pluginVersion} from ${where}, which has no trusted-publishing support. ` +
+    `semantic-release loads ${PLUGIN} ${manifest.version} from ${rel(manifest.dir)}; v${MIN_PLUGIN} or later is required to publish over OIDC. ` +
       `This job holds no npm token, so the release would fail at verifyConditions with ENONPMTOKEN. ` +
-      `Raise the semantic-release dependency until its own tree carries v13 or later — pinning @semantic-release/npm at the project root does NOT fix this, because that copy is not the one loaded.`,
+      `Raise the semantic-release dependency so nothing stale nests below it — pinning ${PLUGIN} at the project root does not help while a nested copy shadows it.`,
   );
 }
-console.log(`@semantic-release/npm ${pluginVersion} from ${where} — trusted publishing supported.`);
+console.log(`${PLUGIN} ${manifest.version} from ${rel(manifest.dir)} — publishes over OIDC (>= ${MIN_PLUGIN}).`);
 
 // 2. The npm binary that plugin will shell out to.
 const npmBin = join(process.cwd(), 'node_modules/.bin/npm');
 if (!existsSync(npmBin)) {
-  fail(`${npmBin} is missing, so the npm that publishes cannot be checked. It comes from package-lock.json; run npm ci first.`);
+  fail(`${rel(npmBin)} is missing, so the npm that publishes cannot be checked. It comes from package-lock.json; run npm ci first.`);
 }
 
 const npmVersion = execFileSync(npmBin, ['--version'], { encoding: 'utf8' }).trim();
-const ok = atLeast(npmVersion, MIN_NPM);
-if (ok === null) {
-  fail(`could not read a version from node_modules/.bin/npm (got "${npmVersion}"), so trusted publishing support is unknown.`);
+const npmOk = atLeast(npmVersion, MIN_NPM);
+if (npmOk === null) {
+  fail(`could not read a version from ${rel(npmBin)} (got "${npmVersion}"), so trusted publishing support is unknown.`);
 }
-if (!ok) {
+if (!npmOk) {
   fail(
-    `node_modules/.bin/npm is ${npmVersion}, which predates trusted publishing; npm >= ${MIN_NPM} is required. ` +
+    `${rel(npmBin)} is ${npmVersion}, which predates trusted publishing; npm >= ${MIN_NPM} is required. ` +
       `This is the npm that publishes, because the plugin shells out with execa preferLocal — the runner's own npm is shadowed, so raising node-version will not change it. It comes from package-lock.json.`,
   );
 }
-console.log(`node_modules/.bin/npm ${npmVersion} — publishes over OIDC (>= ${MIN_NPM}).`);
+console.log(`${rel(npmBin)} ${npmVersion} — publishes over OIDC (>= ${MIN_NPM}).`);

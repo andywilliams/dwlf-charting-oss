@@ -23,10 +23,11 @@ The consequences are worth knowing before you edit anything in `.github/`:
 - **`id-token: write` is part of the credential.** Removing it from the job's
   `permissions:` leaves the job with no way to authenticate at all.
 - **So is `package-lock.json`, in two places that no workflow file mentions.**
-  `semantic-release` resolves plugin names from its own directory first, so the
-  `@semantic-release/npm` that executes is the copy in *its* dependency tree; only
-  v13+ establishes the OIDC context, and pinning the plugin at the project root
-  does not change which copy loads. That plugin then shells out to `npm publish`
+  `semantic-release` resolves plugin names from its own directory and walks up, so
+  a copy nested inside its dependency tree shadows the project root's, and whichever
+  wins is the `@semantic-release/npm` that executes. Only v13+ establishes the OIDC
+  context. Raising a root pin does not help while a stale copy is nested below
+  `semantic-release`; raise `semantic-release` itself. That plugin then shells out to `npm publish`
   through execa with `preferLocal`, so the binary that authenticates is
   `node_modules/.bin/npm` from the lockfile, not the runner's Node-bundled npm, and
   only npm >= 11.5.1 can publish over OIDC. Regenerating the lockfile can move
