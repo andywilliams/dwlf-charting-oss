@@ -13,6 +13,9 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
+      # Mints the short-lived OIDC token npm exchanges for publish rights. Without
+      # it there is no credential at all: the job holds no npm token.
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,7 +25,22 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
+
+      # @semantic-release/npm proves the OIDC context itself, but the publish is
+      # `npm publish` against an npmrc holding no token, so npm's own trusted
+      # publishing does the authenticating. Too old an npm reaches the registry
+      # unauthenticated and fails somewhere less legible than here.
+      - name: Check npm can publish via trusted publishing
+        run: |
+          set -euo pipefail
+          required=11.5.1
+          actual="$(npm --version)"
+          if [ "$(printf '%s\n%s\n' "${required}" "${actual}" | sort -V | head -n1)" != "${required}" ]; then
+            echo "::error::npm ${actual} predates trusted publishing; npm >= ${required} is required. Raise node-version in this workflow."
+            exit 1
+          fi
+          echo "npm ${actual} supports trusted publishing (>= ${required})."
 
       - name: Install dependencies
         run: npm ci
@@ -30,5 +48,4 @@ jobs:
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npx semantic-release
