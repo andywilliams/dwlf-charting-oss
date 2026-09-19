@@ -9,6 +9,14 @@ on:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 24 is what release.yml publishes from, so what ships is built here first.
+        # 20 keeps a version below that exercised, so the release runtime is not the
+        # only Node this package is ever built on. package.json claims `engines`
+        # ">=18", which neither of these verifies — DWLF-263.
+        node-version: [20, 24]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -16,7 +24,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: ${{ matrix.node-version }}
 
       - name: Install dependencies
         run: npm ci

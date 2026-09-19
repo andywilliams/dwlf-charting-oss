@@ -15,6 +15,11 @@ jobs:
       pull-requests: write
       # Mints the short-lived OIDC token npm exchanges for publish rights. Without
       # it there is no credential at all: the job holds no npm token.
+      #
+      # npm's trusted-publisher record for @dwlf/charting names this repository AND
+      # THE PATH OF THIS FILE. Renaming or moving it, or moving this job into a
+      # called workflow, revokes publishing until the record on npm is updated to
+      # match. See RELEASING.md.
       id-token: write
     steps:
       - name: Checkout
@@ -27,10 +32,13 @@ jobs:
         with:
           node-version: 24
 
-      # @semantic-release/npm proves the OIDC context itself, but the publish is
-      # `npm publish` against an npmrc holding no token, so npm's own trusted
-      # publishing does the authenticating. Too old an npm reaches the registry
-      # unauthenticated and fails somewhere less legible than here.
+      # This job's Node version is part of the publish credential, not just a build
+      # choice: @semantic-release/npm proves the OIDC context, but the publish is
+      # `npm publish` against an npmrc holding no token, so npm itself does the
+      # authenticating and only npm >= 11.5.1 knows how. Lowering `node-version`
+      # above — to match ci.yml, or to chase a build problem — silently removes the
+      # only credential this job has. This step is what makes that a named failure
+      # here rather than an opaque auth error at the registry.
       - name: Check npm can publish via trusted publishing
         run: |
           set -euo pipefail
