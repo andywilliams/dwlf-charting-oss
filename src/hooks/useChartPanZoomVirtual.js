@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { estimateBarDurationMs, DAY_MS } from '../utils/barDuration';
 
 /**
  * Pan/Zoom hook that keeps a fixed number of blank "virtual" slots after the
@@ -6,17 +7,14 @@ import { useState, useCallback, useRef, useEffect } from 'react';
  * offset tricks, so zooming never clips candles.
  */
 /**
- * The time one virtual slot represents — ONE BAR of the timeframe, so that
- * `extraSlots` blank bars cover `extraSlots` bars of future time. Weekly was
- * treated as daily until DWLF-266 (21-Sep-2026): 90 weekly slots covered 90
- * days, and anything drawn more than ~13 weeks past the last candle (a cycle
- * window's close, its hard max) fell off an axis no pan could reach.
+ * The time one virtual slot represents — ONE BAR of the timeframe, the
+ * package's shared rule (utils/barDuration). Weekly was treated as daily
+ * until DWLF-266 (21-Sep-2026): 90 weekly slots covered 90 days, and anything
+ * drawn more than ~13 weeks past the last candle (a cycle window's close, its
+ * hard max) fell off an axis no pan could reach.
  */
 export function slotMsForTimeframe(timeframe) {
-  const lowerTf = (timeframe || '').toLowerCase();
-  if (lowerTf === 'hourly') return 3_600_000;
-  if (lowerTf === 'weekly') return 7 * 86_400_000;
-  return 86_400_000;
+  return estimateBarDurationMs(timeframe);
 }
 
 /**
@@ -25,13 +23,15 @@ export function slotMsForTimeframe(timeframe) {
  * spacing rule is testable without rendering.
  */
 export function virtualSlotDates({ lastRealDate, baseOffset, count, timeframe }) {
-  const lowerTf = (timeframe || '').toLowerCase();
   const slotMs = slotMsForTimeframe(timeframe);
+  // Sub-daily bars keep the time of day; daily and longer are calendar dates.
+  // Decided by the slot size, so it can never disagree with the spacing.
+  const keepTime = slotMs < DAY_MS;
   const base = new Date(lastRealDate).getTime();
   return Array.from({ length: count }, (_, i) => {
     const iso = new Date(base + (baseOffset + i) * slotMs).toISOString();
     return {
-      date: lowerTf === 'hourly' ? iso : iso.split('T')[0],
+      date: keepTime ? iso : iso.split('T')[0],
       _virtual: true
     };
   });

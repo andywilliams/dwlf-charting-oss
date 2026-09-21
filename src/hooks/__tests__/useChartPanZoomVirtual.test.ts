@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-// @ts-expect-error — the hook module is JavaScript
 import { slotMsForTimeframe, virtualSlotDates } from '../useChartPanZoomVirtual';
 
 const DAY = 86_400_000;
@@ -11,11 +10,13 @@ const DAY = 86_400_000;
  * its hard max) fell off an axis no pan could reach.
  */
 describe('slotMsForTimeframe — one bar of the timeframe', () => {
-  it('hourly, daily, weekly; default daily', () => {
+  it('hourly, daily, weekly in the spellings the UI uses; default daily', () => {
     expect(slotMsForTimeframe('hourly')).toBe(3_600_000);
+    expect(slotMsForTimeframe('1h')).toBe(3_600_000);
     expect(slotMsForTimeframe('daily')).toBe(DAY);
     expect(slotMsForTimeframe('weekly')).toBe(7 * DAY);
     expect(slotMsForTimeframe('Weekly')).toBe(7 * DAY);
+    expect(slotMsForTimeframe('1w')).toBe(7 * DAY);
     expect(slotMsForTimeframe(undefined)).toBe(DAY);
   });
 });
