@@ -25,6 +25,7 @@ import type {
 } from '../charting/types';
 import type { ChartAnimationState } from '../hooks/useChartAnimations';
 import AnnotationLayer from './overlays/AnnotationLayer';
+import { estimateBarDurationMs } from '../utils/barDuration';
 import {
   buildPaneScales,
   collectSpecTimes,
@@ -1055,8 +1056,9 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
   const svgRef = useRef<SVGSVGElement | null>(null);
   const resolvedHeight = height || DEFAULT_HEIGHT;
 
-  const lowerTimeframe = (timeframe || '').toLowerCase();
-  const slotMs = lowerTimeframe === 'hourly' ? 3_600_000 : 86_400_000;
+  // One bar of the timeframe — the same rule the virtual slots and the measure
+  // tool use (DWLF-266); the x scale beyond the last candle steps by this.
+  const slotMs = estimateBarDurationMs(timeframe);
 
   const baseOhlcSeries = useMemo(() => {
     for (const pane of chartSpec.panes) {

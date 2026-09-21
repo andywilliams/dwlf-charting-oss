@@ -7,6 +7,7 @@ import type {
 import useAnnotationDrag from './useAnnotationDrag';
 import { findClosestIndex, resolveX } from './annotationUtils';
 import { EndpointHandle } from './primitives';
+import { estimateBarDurationMs } from '../../utils/barDuration';
 
 export interface MeasureAnnotationViewProps {
   annotation: MeasureAnnotation;
@@ -34,24 +35,13 @@ export interface MeasureAnnotationViewProps {
 // ─── Helpers ─────────────────────────────────────────────────────────
 
 /** Estimate the approximate duration of one bar in milliseconds from timeframe string */
-const estimateBarDurationMs = (timeframe: string | undefined): number => {
-  if (!timeframe) return 86400000; // default daily
-  const tf = timeframe.toLowerCase();
-  if (tf.includes('1m') && !tf.includes('1mo')) return 60000;
-  if (tf.includes('5m')) return 300000;
-  if (tf.includes('15m')) return 900000;
-  if (tf.includes('30m')) return 1800000;
-  if (tf.includes('hour') || tf === '1h' || tf === '60m') return 3600000;
-  if (tf.includes('4h')) return 14400000;
-  if (tf.includes('week')) return 604800000;
-  if (tf.includes('month') || tf.includes('1mo')) return 2592000000;
-  return 86400000; // daily
-};
+// `estimateBarDurationMs` lives in utils/barDuration — one rule for the package (DWLF-266).
 
 /** Format a time duration to a human-readable string. Timeframe-aware: weekly
  *  charts prefer weeks, sub-daily charts prefer hours+minutes, daily picks
  *  whichever unit fits the magnitude. */
 const formatTimeDiff = (ms: number, timeframe?: string): string => {
+  const isWeeklyTf = estimateBarDurationMs(timeframe) === 604_800_000;
   const abs = Math.abs(ms);
   const minutes = Math.floor(abs / 60000);
   const hours = Math.floor(abs / 3600000);
@@ -60,7 +50,7 @@ const formatTimeDiff = (ms: number, timeframe?: string): string => {
   const tf = (timeframe || '').toLowerCase();
 
   // Weekly: prefer weeks (+ remainder days for short spans).
-  if (tf.includes('week')) {
+  if (isWeeklyTf) {
     if (weeks >= 1) {
       const remainingDays = days - weeks * 7;
       if (remainingDays > 0 && weeks < 8) return `${weeks}w ${remainingDays}d`;
