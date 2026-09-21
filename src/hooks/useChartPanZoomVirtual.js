@@ -5,14 +5,44 @@ import { useState, useCallback, useRef, useEffect } from 'react';
  * last real candle.  This gives a permanent right-hand gap without any pixel
  * offset tricks, so zooming never clips candles.
  */
+/**
+ * The time one virtual slot represents — ONE BAR of the timeframe, so that
+ * `extraSlots` blank bars cover `extraSlots` bars of future time. Weekly was
+ * treated as daily until DWLF-266 (21-Sep-2026): 90 weekly slots covered 90
+ * days, and anything drawn more than ~13 weeks past the last candle (a cycle
+ * window's close, its hard max) fell off an axis no pan could reach.
+ */
+export function slotMsForTimeframe(timeframe) {
+  const lowerTf = (timeframe || '').toLowerCase();
+  if (lowerTf === 'hourly') return 3_600_000;
+  if (lowerTf === 'weekly') return 7 * 86_400_000;
+  return 86_400_000;
+}
+
+/**
+ * The dated blank slots after the last real candle: `count` slots starting
+ * `baseOffset` bars after it, one bar of the timeframe apart. Pure, so the
+ * spacing rule is testable without rendering.
+ */
+export function virtualSlotDates({ lastRealDate, baseOffset, count, timeframe }) {
+  const lowerTf = (timeframe || '').toLowerCase();
+  const slotMs = slotMsForTimeframe(timeframe);
+  const base = new Date(lastRealDate).getTime();
+  return Array.from({ length: count }, (_, i) => {
+    const iso = new Date(base + (baseOffset + i) * slotMs).toISOString();
+    return {
+      date: lowerTf === 'hourly' ? iso : iso.split('T')[0],
+      _virtual: true
+    };
+  });
+}
+
 export default function useChartPanZoomVirtual(
   data,
   initialVisibleCount = 50,
   extraSlots = 30, // configurable number of blank bars
   timeframe = 'daily'
 ) {
-  const lowerTf = (timeframe || '').toLowerCase();
-  const SLOT_MS = lowerTf === 'hourly' ? 3_600_000 : 86_400_000; // 1 hour vs 1 day spacing
 
   const DATA_MAX = data.length + extraSlots;
 
@@ -33,22 +63,18 @@ export default function useChartPanZoomVirtual(
 
     let dummies = [];
     if (viewportEnd > data.length && data.length) {
-      const lastRealDate = new Date(data[data.length - 1].date);
       const firstVirtualIndex = Math.max(viewportStart, data.length);
       const dummyCount = Math.max(0, viewportEnd - firstVirtualIndex);
       const baseOffset = firstVirtualIndex - (data.length - 1);
-      dummies = Array.from({ length: dummyCount }, (_, i) => {
-        const offset = baseOffset + i;
-        const nextDate = new Date(lastRealDate.getTime() + offset * SLOT_MS);
-        const iso = nextDate.toISOString();
-        return {
-          date: lowerTf === 'hourly' ? iso : iso.split('T')[0],
-          _virtual: true
-        };
+      dummies = virtualSlotDates({
+        lastRealDate: data[data.length - 1].date,
+        baseOffset,
+        count: dummyCount,
+        timeframe
       });
     }
     return [...slice, ...dummies];
-  }, [viewportStart, viewportEnd, data, lowerTf, SLOT_MS]);
+  }, [viewportStart, viewportEnd, data, timeframe]);
 
   const visibleData = buildVisibleData();
   const visibleCount = visibleData.length;
