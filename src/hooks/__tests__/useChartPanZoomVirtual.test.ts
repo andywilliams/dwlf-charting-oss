@@ -24,6 +24,8 @@ describe('slotMsForTimeframe — one bar of the timeframe', () => {
     expect(slotMsForTimeframe('5m')).toBe(300_000);
     expect(slotMsForTimeframe('1m')).toBe(60_000);
     expect(slotMsForTimeframe('1mo')).toBe(2_592_000_000);
+    expect(slotMsForTimeframe('4h')).toBe(14_400_000);
+    expect(slotMsForTimeframe('4hour')).toBe(14_400_000);
   });
 });
 
