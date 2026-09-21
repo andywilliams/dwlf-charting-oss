@@ -18,6 +18,12 @@ describe('slotMsForTimeframe — one bar of the timeframe', () => {
     expect(slotMsForTimeframe('Weekly')).toBe(7 * DAY);
     expect(slotMsForTimeframe('1w')).toBe(7 * DAY);
     expect(slotMsForTimeframe(undefined)).toBe(DAY);
+    // spellings that share substrings resolve to the longer bar first
+    expect(slotMsForTimeframe('15m')).toBe(900_000);
+    expect(slotMsForTimeframe('30m')).toBe(1_800_000);
+    expect(slotMsForTimeframe('5m')).toBe(300_000);
+    expect(slotMsForTimeframe('1m')).toBe(60_000);
+    expect(slotMsForTimeframe('1mo')).toBe(2_592_000_000);
   });
 });
 

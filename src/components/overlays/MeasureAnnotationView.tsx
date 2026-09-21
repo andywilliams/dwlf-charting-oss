@@ -41,6 +41,7 @@ export interface MeasureAnnotationViewProps {
  *  charts prefer weeks, sub-daily charts prefer hours+minutes, daily picks
  *  whichever unit fits the magnitude. */
 const formatTimeDiff = (ms: number, timeframe?: string): string => {
+  const isWeeklyTf = estimateBarDurationMs(timeframe) === 604_800_000;
   const abs = Math.abs(ms);
   const minutes = Math.floor(abs / 60000);
   const hours = Math.floor(abs / 3600000);
@@ -49,7 +50,7 @@ const formatTimeDiff = (ms: number, timeframe?: string): string => {
   const tf = (timeframe || '').toLowerCase();
 
   // Weekly: prefer weeks (+ remainder days for short spans).
-  if (tf.includes('week')) {
+  if (isWeeklyTf) {
     if (weeks >= 1) {
       const remainingDays = days - weeks * 7;
       if (remainingDays > 0 && weeks < 8) return `${weeks}w ${remainingDays}d`;

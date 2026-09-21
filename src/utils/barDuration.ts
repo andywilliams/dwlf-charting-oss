@@ -10,10 +10,12 @@
 export const estimateBarDurationMs = (timeframe: string | undefined | null): number => {
   if (!timeframe) return 86_400_000; // default daily
   const tf = timeframe.toLowerCase();
-  if (tf.includes('1m') && !tf.includes('1mo')) return 60_000;
-  if (tf.includes('5m')) return 300_000;
+  // Longer minute spellings first: '15m' contains '5m', '30m' does not contain
+  // '1m' but '1m' must still not swallow '1mo' — order is the rule here.
   if (tf.includes('15m')) return 900_000;
   if (tf.includes('30m')) return 1_800_000;
+  if (tf.includes('5m')) return 300_000;
+  if (tf.includes('1m') && !tf.includes('1mo')) return 60_000;
   if (tf.includes('hour') || tf === '1h' || tf === '60m') return 3_600_000;
   if (tf.includes('4h')) return 14_400_000;
   if (tf.includes('week') || tf === '1w') return 604_800_000;
