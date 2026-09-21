@@ -9,6 +9,17 @@ on:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 24 is the version release.yml publishes from, so a pull request builds it
+        # before merge. Nothing sequences this workflow ahead of release.yml: on a
+        # push to main they run in parallel, and the tarball is built inside the
+        # release job by `prepublishOnly`, not here.
+        # 20 keeps a version below that exercised, so the release runtime is not the
+        # only Node this package is ever built on. package.json claims `engines`
+        # ">=18", which neither of these verifies — DWLF-263.
+        node-version: [20, 24]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -16,10 +27,38 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ matrix.node-version }}
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Build
+        run: npm run build
+
+  # release.yml installs with --ignore-scripts, because `id-token: write` is
+  # job-scoped and a dependency lifecycle script running there could trade the ID
+  # token for publish rights. That is a different tree from the one `quality`
+  # builds, and it is the tree the published tarball is built in. Verify it here,
+  # at pull-request time, rather than discovering it during a release.
+  release-tree:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies without scripts
+        run: npm ci --ignore-scripts
+
+      # The thing this guards against is lockfile drift, and lockfile drift arrives
+      # as a pull request. Running it only in release.yml means the PR that breaks
+      # publishing is green and the release after it is red, on main.
+      - name: Check this tree can publish via trusted publishing
+        run: node .github/scripts/check-trusted-publishing.mjs
 
       - name: Build
         run: npm run build

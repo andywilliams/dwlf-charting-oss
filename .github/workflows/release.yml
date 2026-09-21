@@ -13,22 +13,54 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
+      # Mints the short-lived OIDC token npm exchanges for publish rights. Without
+      # it there is no credential at all: the job holds no npm token.
+      #
+      # npm's trusted-publisher record for @dwlf/charting names this repository and
+      # THIS FILE'S NAME, `release.yml`, matched exactly and expected under
+      # .github/workflows/. Renaming it, or moving this job into a called workflow
+      # under a different name, revokes publishing until the record on npm is
+      # updated to match. See RELEASING.md.
+      #
+      # This permission is job-scoped: GitHub exports the ID-token request URL and
+      # token into EVERY step below, not just the one that publishes. That is why
+      # the install runs with --ignore-scripts.
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      # semantic-release 25 requires ^22.14.0 || >= 24.10.0. The npm that performs
+      # the publish is NOT this one — see the preflight below.
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
+      # --ignore-scripts because every step in this job can reach the ID-token
+      # endpoint and exchange it for publish rights on @dwlf/charting. A dependency
+      # lifecycle script running here would not need semantic-release to push a
+      # tarball. The secret this replaced was scoped to one step and had no such
+      # reach. Build verified to succeed without install scripts; if a dependency
+      # ever needs them, split install and build into a job without id-token: write
+      # rather than dropping this flag.
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
+
+      - name: Check this tree can publish via trusted publishing
+        run: node .github/scripts/check-trusted-publishing.mjs
+
+      # semantic-release creates and pushes the tag BEFORE it calls the publish
+      # plugins, and `npm publish` builds the tarball through `prepublishOnly`. A
+      # build that fails there strands a pushed tag on main with nothing on the
+      # registry. Building first, in the same scripts-disabled tree, turns that into
+      # a failure before any tag exists.
+      - name: Build
+        run: npm run build
 
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npx semantic-release
