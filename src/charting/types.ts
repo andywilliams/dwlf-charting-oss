@@ -17,6 +17,8 @@ export type SeriesType = 'line' | 'hist' | 'area' | 'ohlc' | 'marker' | 'positio
 
 export interface SeriesStyle {
   color?: string;
+  /** OHLC only: the down (bear) candle body colour. Unset: a darker shade of `color`. */
+  downColor?: string;
   lineWidth?: number;
   dashed?: boolean;
   opacity?: number;
