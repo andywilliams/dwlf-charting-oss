@@ -81,7 +81,7 @@ describe('DWLFChart rendering', () => {
     expect(empty).not.toContain('fill=""');
   });
 
-  it('draws down candles in style.downColor when set, and keeps the derived shade otherwise', () => {
+  it('draws down candles in style.downColor when set, and the derived shade when unset or empty', () => {
     const withStyle = (style: Record<string, string>) => ({
       ...chartSpec,
       panes: chartSpec.panes.map((pane) => ({
@@ -94,7 +94,10 @@ describe('DWLFChart rendering', () => {
     const red = renderToStaticMarkup(<DWLFChart spec={withStyle({ color: '#00ff88', downColor: '#ff3b3b' })} darkMode />);
     expect(red).toContain('#ff3b3b');
     const derived = renderToStaticMarkup(<DWLFChart spec={withStyle({ color: '#00ff88' })} darkMode />);
-    expect(derived).not.toContain('#ff3b3b');
+    expect(derived).toContain('fill="#00a659"'); // d3 darker(1.2) of #00ff88
+    const empty = renderToStaticMarkup(<DWLFChart spec={withStyle({ color: '#00ff88', downColor: '' })} darkMode />);
+    expect(empty).toContain('fill="#00a659"');
+    expect(empty).not.toContain('fill=""');
   });
 
   it('omits the y-axis tick labels when pane.hideYAxis is true', () => {

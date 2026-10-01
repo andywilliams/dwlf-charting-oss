@@ -49,7 +49,7 @@ Dark mode is supported via the `darkMode` prop (defaults to `true`):
 <DWLFChart spec={spec} darkMode={true} />
 ```
 
-This controls the background, text, grid, crosshair, tooltip, and candle colors automatically.
+This controls the background, text, grid, crosshair, tooltip, and candle colors automatically. To set the down-candle colour yourself, give the OHLC series `style.downColor`.
 
 For further customisation, use `axisColors`:
 
@@ -127,6 +127,7 @@ Set colors with the `color` shorthand or `style.color` (both work):
 ```tsx
 interface SeriesStyle {
   color?: string;        // Series color
+  downColor?: string;    // OHLC only: down-candle body colour (default: a darker shade of color)
   lineWidth?: number;    // Line thickness (default: 1.5)
   dashed?: boolean;      // Dashed line
   opacity?: number;      // Opacity (0-1)
