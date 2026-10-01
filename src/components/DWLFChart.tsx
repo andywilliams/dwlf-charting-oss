@@ -578,7 +578,7 @@ const renderOhlcSeries = (
   const baseColor = series.style?.color ?? series.color ?? (darkMode ? '#22c55e' : '#16a34a');
   const parsed = d3.color(baseColor);
   const bearFallback = darkMode ? '#ef4444' : '#b91c1c';
-  const bearColor = parsed ? parsed.darker(1.2).formatHex() : bearFallback;
+  const bearColor = series.style?.downColor || (parsed ? parsed.darker(1.2).formatHex() : bearFallback);
   const bullColor = baseColor;
 
   // Filter candles based on animation state
