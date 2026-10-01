@@ -1,6 +1,6 @@
 // Main component export
 export { default as DWLFChart } from './components/DWLFChart';
-export type { DwlfChartHandle, DWLFChartProps, AxisColorConfig } from './components/DWLFChart';
+export type { DwlfChartHandle, DWLFChartProps, AxisColorConfig, ChartPaletteConfig, ChartSurfaceColors } from './components/DWLFChart';
 
 // Core chart types
 export type {

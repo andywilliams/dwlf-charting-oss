@@ -61,6 +61,24 @@ For further customisation, use `axisColors`:
 />
 ```
 
+To match the chart's surface to your own theme, pass `palette` with per-mode overrides. Any key left
+out (or empty) keeps the default:
+
+```tsx
+<DWLFChart
+  spec={spec}
+  darkMode={isDark}
+  palette={{
+    dark: { background: '#0a0a0c', grid: 'rgba(255,255,255,0.06)', text: '#ffffff', tooltipBackground: '#18181c' },
+    light: { background: '#ffffff', text: '#0a0a0c' },
+  }}
+/>
+```
+
+`background` is the plot surface. `grid` sets the grid lines, any pane guide without its own colour (e.g. 20/80 levels), and the tooltip border. `text` sets pane
+titles, tooltip text and the crosshair price label; axis ticks use `axisColors`. `tooltipBackground` sets
+the tooltip and the price-label box.
+
 ## Timestamps
 
 **Important:** The charting library expects timestamps in **milliseconds** (Unix epoch in ms). If your data uses seconds (common in crypto APIs), multiply by 1000:
@@ -161,6 +179,7 @@ const spec: ChartSpec = {
 | `crosshairSnapMode` | `'series' \| 'pointer'` | `'series'` | `'pointer'` follows mouse freely, `'series'` snaps to nearest candle |
 | `showCrosshairPriceLabel` | `boolean` | — | Show price label on crosshair |
 | `axisColors` | `{ light?: string; dark?: string }` | — | Custom axis/crosshair colors |
+| `palette` | `{ light?: ChartSurfaceColors; dark?: ChartSurfaceColors }` | — | Per-mode surface colours: `background`, `grid`, `text`, `tooltipBackground` |
 | `annotations` | `Annotation[]` | — | Chart annotations (lines, text, fib, etc.) |
 | `className` | `string` | — | CSS class on container |
 | `style` | `CSSProperties` | — | Inline styles on container |

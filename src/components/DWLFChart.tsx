@@ -896,6 +896,24 @@ export interface AxisColorConfig {
   dark?: string;
 }
 
+/**
+ * Surface colours a host app can set per mode, e.g. to match its own theme. Unset or empty keys keep
+ * the defaults. `background`: the plot surface. `grid`: grid lines, pane guides without their own colour, and the hover tooltip border.
+ * `text`: pane titles, tooltip text and the crosshair price label (axis ticks use `axisColors`).
+ * `tooltipBackground`: the hover tooltip and the crosshair price-label box.
+ */
+export interface ChartSurfaceColors {
+  background?: string;
+  grid?: string;
+  text?: string;
+  tooltipBackground?: string;
+}
+
+export interface ChartPaletteConfig {
+  light?: ChartSurfaceColors;
+  dark?: ChartSurfaceColors;
+}
+
 export interface DWLFChartProps {
   spec?: ChartSpec;
   darkMode?: boolean;
@@ -908,6 +926,8 @@ export interface DWLFChartProps {
   extraRightSlots?: number;
   compressGaps?: boolean;
   axisColors?: AxisColorConfig;
+  /** Override the chart's surface colours per mode; defaults are unchanged when omitted. */
+  palette?: ChartPaletteConfig;
   crosshairSnapMode?: 'series' | 'pointer';
   /**
    * When true, draw a small price label on the right-hand axis that tracks
@@ -1028,6 +1048,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
     extraRightSlots = 30,
     compressGaps = false,
     axisColors,
+    palette,
     crosshairSnapMode = 'series',
     showCrosshairPriceLabel = true,
     annotations = [],
@@ -2002,8 +2023,9 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
     handlePanToEnd,
   ]);
 
-  const background = darkMode ? '#0f172a' : '#ffffff';
-  const gridColor = darkMode ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.08)';
+  const surface = (darkMode ? palette?.dark : palette?.light) ?? {};
+  const background = surface.background || (darkMode ? '#0f172a' : '#ffffff');
+  const gridColor = surface.grid || (darkMode ? 'rgba(148, 163, 184, 0.12)' : 'rgba(15, 23, 42, 0.08)');
   const axisColor = useMemo(
     () => (darkMode ? axisColors?.dark ?? '#94a3b8' : axisColors?.light ?? '#475569'),
     [axisColors, darkMode],
@@ -2012,8 +2034,8 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
     () => (darkMode ? axisColors?.dark : axisColors?.light) ?? (darkMode ? '#f1f5f9' : '#0f172a'),
     [axisColors, darkMode],
   );
-  const textColor = darkMode ? '#e2e8f0' : '#1f2937';
-  const tooltipBackground = darkMode ? 'rgba(15, 23, 42, 0.9)' : 'rgba(255,255,255,0.95)';
+  const textColor = surface.text || (darkMode ? '#e2e8f0' : '#1f2937');
+  const tooltipBackground = surface.tooltipBackground || (darkMode ? 'rgba(15, 23, 42, 0.9)' : 'rgba(255,255,255,0.95)');
 
   const containerClasses = [
     'dwlf-chart-container',

@@ -63,6 +63,24 @@ describe('DWLFChart rendering', () => {
     expect(normalised).toMatchSnapshot();
   });
 
+  it('paints the surface from the palette for the current mode, and only that mode', () => {
+    const palette = { dark: { background: '#0a0a0c', text: '#ffffff' }, light: { background: '#fafafa', text: '#111111' } };
+    const dark = renderToStaticMarkup(<DWLFChart spec={chartSpec} darkMode palette={palette} />);
+    expect(dark).toContain('#0a0a0c');
+    expect(dark).not.toContain('#fafafa');
+    const light = renderToStaticMarkup(<DWLFChart spec={chartSpec} darkMode={false} palette={palette} />);
+    expect(light).toContain('#fafafa');
+    expect(light).not.toContain('#0a0a0c');
+  });
+
+  it('keeps the defaults without a palette, and for empty values', () => {
+    const plain = renderToStaticMarkup(<DWLFChart spec={chartSpec} darkMode />);
+    expect(plain).toContain('#0f172a');
+    const empty = renderToStaticMarkup(<DWLFChart spec={chartSpec} darkMode palette={{ dark: { background: '', text: '' } }} />);
+    expect(empty).toContain('#0f172a');
+    expect(empty).not.toContain('fill=""');
+  });
+
   it('omits the y-axis tick labels when pane.hideYAxis is true', () => {
     const specWithHiddenAxis: ChartSpec = {
       panes: [
