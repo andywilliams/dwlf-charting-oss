@@ -75,7 +75,7 @@ out (or empty) keeps the default:
 />
 ```
 
-`background` is the plot surface. `grid` sets the grid lines and the tooltip border. `text` sets pane
+`background` is the plot surface. `grid` sets the grid lines, any pane guide without its own colour (e.g. 20/80 levels), and the tooltip border. `text` sets pane
 titles, tooltip text and the crosshair price label; axis ticks use `axisColors`. `tooltipBackground` sets
 the tooltip and the price-label box.
 

@@ -898,7 +898,7 @@ export interface AxisColorConfig {
 
 /**
  * Surface colours a host app can set per mode, e.g. to match its own theme. Unset or empty keys keep
- * the defaults. `background`: the plot surface. `grid`: grid lines and the hover tooltip border.
+ * the defaults. `background`: the plot surface. `grid`: grid lines, pane guides without their own colour, and the hover tooltip border.
  * `text`: pane titles, tooltip text and the crosshair price label (axis ticks use `axisColors`).
  * `tooltipBackground`: the hover tooltip and the crosshair price-label box.
  */
