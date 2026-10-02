@@ -181,6 +181,8 @@ const spec: ChartSpec = {
 | `showCrosshairPriceLabel` | `boolean` | — | Show price label on crosshair |
 | `axisColors` | `{ light?: string; dark?: string }` | — | Custom axis/crosshair colors |
 | `palette` | `{ light?: ChartSurfaceColors; dark?: ChartSurfaceColors }` | — | Per-mode surface colours: `background`, `grid`, `text`, `tooltipBackground` |
+| `showCrosshairTimeLabel` | `boolean` | `true` | Crosshair date as a label on the time axis |
+| `showPaneTooltips` | `boolean` | `true` | Per-pane hover box (title, date, series values); turn off if the host shows hovered values itself |
 | `annotations` | `Annotation[]` | — | Chart annotations (lines, text, fib, etc.) |
 | `className` | `string` | — | CSS class on container |
 | `style` | `CSSProperties` | — | Inline styles on container |
