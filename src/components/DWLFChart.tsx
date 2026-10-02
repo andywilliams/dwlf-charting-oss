@@ -938,6 +938,17 @@ export interface DWLFChartProps {
    */
   showCrosshairPriceLabel?: boolean;
   /**
+   * When true (default), draw the crosshair's date as a label on the time axis, under the vertical
+   * crosshair line — the time counterpart of the price label.
+   */
+  showCrosshairTimeLabel?: boolean;
+  /**
+   * When true (default), show a hover box per pane with its title, the date and each series' value.
+   * Hosts that show the hovered values themselves (e.g. an OHLC header) can turn it off; the date
+   * then stays readable on the time axis via `showCrosshairTimeLabel`.
+   */
+  showPaneTooltips?: boolean;
+  /**
    * Chart annotations (horizontal lines, text labels) for the price pane.
    * Rendered as an overlay layer above series but below crosshair.
    */
@@ -1051,6 +1062,8 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
     palette,
     crosshairSnapMode = 'series',
     showCrosshairPriceLabel = true,
+    showCrosshairTimeLabel = true,
+    showPaneTooltips = true,
     annotations = [],
     selectedAnnotationId = null,
     onAnnotationSelect,
@@ -2287,9 +2300,27 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
               {formatTime(getRawTimeFromValue(tick), specForRender.timeFormatter)}
             </text>
           ))}
+          {hover && showCrosshairTimeLabel && (() => {
+            // Drawn after the ticks so it sits over the tick under the crosshair, clamped inside the plot.
+            const text = formatTime(hover.time, specForRender.timeFormatter);
+            const labelWidth = Math.max(48, text.length * 6.6 + 14);
+            const labelHeight = 18;
+            const x = Math.max(0, Math.min(width - labelWidth, hover.x - labelWidth / 2));
+            const yTop = resolvedHeight - labelHeight - 1;
+            return (
+              <g className="dwlf-crosshair-time-label">
+                <rect x={x} y={yTop} width={labelWidth} height={labelHeight} rx={4} ry={4}
+                  fill={tooltipBackground} stroke={crosshairColor} strokeWidth={1} />
+                <text x={x + labelWidth / 2} y={yTop + labelHeight / 2} fill={textColor} fontSize={11}
+                  textAnchor="middle" alignmentBaseline="middle">
+                  {text}
+                </text>
+              </g>
+            );
+          })()}
         </g>
       </svg>
-      {hover && paneRects.map(({ pane, y, height: paneHeight }) => {
+      {hover && showPaneTooltips && paneRects.map(({ pane, y, height: paneHeight }) => {
         const info = hover.perPane[pane.id];
         if (!info) return null;
         return (
