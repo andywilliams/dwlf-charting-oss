@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { DWLFChart, __computeSeriesHoverForTests } from '../../components';
+import { DWLFChart, __computeSeriesHoverForTests, crosshairTimeLabelBox } from '../../components';
 import type { ChartSpec, PaneSpec, SeriesSpec } from '../types';
 import { collectSpecTimes, findClosestTime, resolvePaneDomain } from '../scales';
 
@@ -150,6 +150,16 @@ describe('DWLFChart rendering', () => {
     );
     const yAxisMatches = (markup.match(/dwlf-y-axis/g) || []).length;
     expect(yAxisMatches).toBe(2);
+  });
+});
+
+describe('crosshair time label', () => {
+  it('centres on the crosshair and sits on the bottom edge', () => {
+    expect(crosshairTimeLabelBox(10, 500, 1000, 400)).toEqual({ x: 500 - 40, y: 381, width: 80, height: 18 });
+  });
+  it('stays inside the plot at both edges', () => {
+    expect(crosshairTimeLabelBox(10, 5, 1000, 400).x).toBe(0);
+    expect(crosshairTimeLabelBox(10, 995, 1000, 400).x).toBe(920);
   });
 });
 

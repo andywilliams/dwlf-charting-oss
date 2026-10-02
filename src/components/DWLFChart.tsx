@@ -891,6 +891,14 @@ const computeSeriesHover = (series: SeriesSpec, time: number): HoverSeries => {
   return { key: series.key, color: series.style?.color ?? series.color, value: null, display, raw: fallback };
 };
 
+/** Where the crosshair's time-axis label sits: centred on the crosshair, kept inside the plot. */
+export const crosshairTimeLabelBox = (textLength: number, crosshairX: number, plotWidth: number, plotHeight: number) => {
+  const width = Math.max(48, textLength * 6.6 + 14);
+  const height = 18;
+  const x = Math.max(0, Math.min(plotWidth - width, crosshairX - width / 2));
+  return { x, y: plotHeight - height - 1, width, height };
+};
+
 export interface AxisColorConfig {
   light?: string;
   dark?: string;
@@ -937,6 +945,17 @@ export interface DWLFChartProps {
    * and is wired to the global "Crosshair Price Label" user preference.
    */
   showCrosshairPriceLabel?: boolean;
+  /**
+   * When true (default), draw the crosshair's date as a label on the time axis, under the vertical
+   * crosshair line — the time counterpart of the price label.
+   */
+  showCrosshairTimeLabel?: boolean;
+  /**
+   * When true (default), show a hover box per pane with its title, the date and each series' value.
+   * Hosts that show the hovered values themselves (e.g. an OHLC header) can turn it off; the date
+   * then stays readable on the time axis via `showCrosshairTimeLabel`.
+   */
+  showPaneTooltips?: boolean;
   /**
    * Chart annotations (horizontal lines, text labels) for the price pane.
    * Rendered as an overlay layer above series but below crosshair.
@@ -1051,6 +1070,8 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
     palette,
     crosshairSnapMode = 'series',
     showCrosshairPriceLabel = true,
+    showCrosshairTimeLabel = true,
+    showPaneTooltips = true,
     annotations = [],
     selectedAnnotationId = null,
     onAnnotationSelect,
@@ -2287,9 +2308,25 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
               {formatTime(getRawTimeFromValue(tick), specForRender.timeFormatter)}
             </text>
           ))}
+          {hover && showCrosshairTimeLabel && (() => {
+            // Drawn after the ticks so it covers the tick under the crosshair; never catches the pointer,
+            // so annotations and drag handles under it stay usable.
+            const text = formatTime(hover.time, specForRender.timeFormatter);
+            const box = crosshairTimeLabelBox(text.length, hover.x, width, resolvedHeight);
+            return (
+              <g className="dwlf-crosshair-time-label" pointerEvents="none">
+                <rect x={box.x} y={box.y} width={box.width} height={box.height} rx={4} ry={4}
+                  fill={tooltipBackground} stroke={crosshairColor} strokeWidth={1} />
+                <text x={box.x + box.width / 2} y={box.y + box.height / 2} fill={textColor} fontSize={11}
+                  textAnchor="middle" alignmentBaseline="middle">
+                  {text}
+                </text>
+              </g>
+            );
+          })()}
         </g>
       </svg>
-      {hover && paneRects.map(({ pane, y, height: paneHeight }) => {
+      {hover && showPaneTooltips && paneRects.map(({ pane, y, height: paneHeight }) => {
         const info = hover.perPane[pane.id];
         if (!info) return null;
         return (
