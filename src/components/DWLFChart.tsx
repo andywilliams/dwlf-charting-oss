@@ -2214,51 +2214,6 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
                   strokeDasharray="3 3"
                 />
               )}
-              {/* After the crosshair line, so the line runs under the label rather than through its text. */}
-              {hover && hoverInfo && showCrosshairPriceLabel && !pane.hideYAxis && hoverInfo.lineVisible !== false
-                && Number.isFinite(hoverInfo.y ?? NaN) && (() => {
-                  const labelWidth = 72;
-                  const labelHeight = 18;
-                  const halfHeight = labelHeight / 2;
-                  const xRightPadding = 4;
-                  const x = Math.max(0, width - labelWidth - xRightPadding);
-                  const rawCenterY = hoverInfo.y as number;
-                  const clampedCenterY = Math.max(
-                    halfHeight + 2,
-                    Math.min(paneHeight - halfHeight - 2, rawCenterY),
-                  );
-                  const yTop = clampedCenterY - halfHeight;
-                  const priceAtPointer = scale.invert(clampedCenterY);
-                  if (!Number.isFinite(priceAtPointer)) {
-                    return null;
-                  }
-                  const labelText = formatNumber(priceAtPointer as number);
-                  return (
-                    <g className="dwlf-crosshair-price-label">
-                      <rect
-                        x={x}
-                        y={yTop}
-                        width={labelWidth}
-                        height={labelHeight}
-                        rx={4}
-                        ry={4}
-                        fill={tooltipBackground}
-                        stroke={crosshairColor}
-                        strokeWidth={1}
-                      />
-                      <text
-                        x={x + labelWidth / 2}
-                        y={clampedCenterY}
-                        fill={textColor}
-                        fontSize={11}
-                        textAnchor="middle"
-                        alignmentBaseline="middle"
-                      >
-                        {labelText}
-                      </text>
-                    </g>
-                  );
-                })()}
               {!pane.hideYAxis && (
                 <g className="dwlf-y-axis" transform={`translate(${width - 40}, 0)`}>
                   {ticks.map((tick, index) => (
@@ -2309,6 +2264,63 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
               {formatTime(getRawTimeFromValue(tick), specForRender.timeFormatter)}
             </text>
           ))}
+          {/* Crosshair price labels, drawn last: above the crosshair lines and the axis ticks, so nothing runs
+              through their text; they never catch the pointer, so what's under them stays usable. */}
+          {hover && showCrosshairPriceLabel && paneRects.map(({ pane, y: paneY, height: paneHeight }) => {
+            const scale = paneScales[pane.id];
+            const hoverInfo = hover.perPane[pane.id];
+            if (!scale || pane.hideYAxis || !hoverInfo || hoverInfo.lineVisible === false
+              || !Number.isFinite(hoverInfo.y ?? NaN)) {
+              return null;
+            }
+            return (
+              <React.Fragment key={`price-label-${pane.id}`}>
+                {(() => {
+                  const labelWidth = 72;
+                  const labelHeight = 18;
+                  const halfHeight = labelHeight / 2;
+                  const xRightPadding = 4;
+                  const x = Math.max(0, width - labelWidth - xRightPadding);
+                  const rawCenterY = hoverInfo.y as number;
+                  const clampedCenterY = Math.max(
+                    halfHeight + 2,
+                    Math.min(paneHeight - halfHeight - 2, rawCenterY),
+                  );
+                  const yTop = clampedCenterY - halfHeight;
+                  const priceAtPointer = scale.invert(clampedCenterY);
+                  if (!Number.isFinite(priceAtPointer)) {
+                    return null;
+                  }
+                  const labelText = formatNumber(priceAtPointer as number);
+                  return (
+                    <g className="dwlf-crosshair-price-label" transform={`translate(0, ${paneY})`} pointerEvents="none">
+                      <rect
+                        x={x}
+                        y={yTop}
+                        width={labelWidth}
+                        height={labelHeight}
+                        rx={4}
+                        ry={4}
+                        fill={tooltipBackground}
+                        stroke={crosshairColor}
+                        strokeWidth={1}
+                      />
+                      <text
+                        x={x + labelWidth / 2}
+                        y={clampedCenterY}
+                        fill={textColor}
+                        fontSize={11}
+                        textAnchor="middle"
+                        alignmentBaseline="middle"
+                      >
+                        {labelText}
+                      </text>
+                    </g>
+                  );
+                })()}
+              </React.Fragment>
+            );
+          })}
           {hover && showCrosshairTimeLabel && (() => {
             // Drawn after the ticks so it covers the tick under the crosshair; never catches the pointer,
             // so annotations and drag handles under it stay usable.
