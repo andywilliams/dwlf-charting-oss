@@ -2203,6 +2203,18 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
                   interactive={interactiveAnnotations}
                 />
               )}
+              {hoverInfo && hoverInfo.lineVisible !== false && Number.isFinite(hoverInfo.y ?? NaN) && (
+                <line
+                  x1={0}
+                  x2={width}
+                  y1={hoverInfo.y as number}
+                  y2={hoverInfo.y as number}
+                  stroke={crosshairColor}
+                  strokeWidth={1.5}
+                  strokeDasharray="3 3"
+                />
+              )}
+              {/* After the crosshair line, so the line runs under the label rather than through its text. */}
               {hover && hoverInfo && showCrosshairPriceLabel && !pane.hideYAxis && hoverInfo.lineVisible !== false
                 && Number.isFinite(hoverInfo.y ?? NaN) && (() => {
                   const labelWidth = 72;
@@ -2247,17 +2259,6 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
                     </g>
                   );
                 })()}
-              {hoverInfo && hoverInfo.lineVisible !== false && Number.isFinite(hoverInfo.y ?? NaN) && (
-                <line
-                  x1={0}
-                  x2={width}
-                  y1={hoverInfo.y as number}
-                  y2={hoverInfo.y as number}
-                  stroke={crosshairColor}
-                  strokeWidth={1.5}
-                  strokeDasharray="3 3"
-                />
-              )}
               {!pane.hideYAxis && (
                 <g className="dwlf-y-axis" transform={`translate(${width - 40}, 0)`}>
                   {ticks.map((tick, index) => (
