@@ -178,7 +178,7 @@ const spec: ChartSpec = {
 | `extraRightSlots` | `number` | — | Extra padding on the right edge |
 | `compressGaps` | `boolean` | `false` | Remove weekend/holiday gaps |
 | `crosshairSnapMode` | `'series' \| 'pointer'` | `'series'` | `'pointer'` follows mouse freely, `'series'` snaps to nearest candle |
-| `showCrosshairPriceLabel` | `boolean` | — | Show price label on crosshair |
+| `showCrosshairPriceLabel` | `boolean` | `true` | Show price label on crosshair |
 | `axisColors` | `{ light?: string; dark?: string }` | — | Custom axis/crosshair colors |
 | `palette` | `{ light?: ChartSurfaceColors; dark?: ChartSurfaceColors }` | — | Per-mode surface colours: `background`, `grid`, `text`, `tooltipBackground` |
 | `showCrosshairTimeLabel` | `boolean` | `true` | Crosshair date as a label on the time axis |

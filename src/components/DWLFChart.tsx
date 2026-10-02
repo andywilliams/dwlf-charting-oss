@@ -891,6 +891,14 @@ const computeSeriesHover = (series: SeriesSpec, time: number): HoverSeries => {
   return { key: series.key, color: series.style?.color ?? series.color, value: null, display, raw: fallback };
 };
 
+/** Where the crosshair's time-axis label sits: centred on the crosshair, kept inside the plot. */
+export const crosshairTimeLabelBox = (textLength: number, crosshairX: number, plotWidth: number, plotHeight: number) => {
+  const width = Math.max(48, textLength * 6.6 + 14);
+  const height = 18;
+  const x = Math.max(0, Math.min(plotWidth - width, crosshairX - width / 2));
+  return { x, y: plotHeight - height - 1, width, height };
+};
+
 export interface AxisColorConfig {
   light?: string;
   dark?: string;
@@ -2301,17 +2309,15 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
             </text>
           ))}
           {hover && showCrosshairTimeLabel && (() => {
-            // Drawn after the ticks so it sits over the tick under the crosshair, clamped inside the plot.
+            // Drawn after the ticks so it covers the tick under the crosshair; never catches the pointer,
+            // so annotations and drag handles under it stay usable.
             const text = formatTime(hover.time, specForRender.timeFormatter);
-            const labelWidth = Math.max(48, text.length * 6.6 + 14);
-            const labelHeight = 18;
-            const x = Math.max(0, Math.min(width - labelWidth, hover.x - labelWidth / 2));
-            const yTop = resolvedHeight - labelHeight - 1;
+            const box = crosshairTimeLabelBox(text.length, hover.x, width, resolvedHeight);
             return (
-              <g className="dwlf-crosshair-time-label">
-                <rect x={x} y={yTop} width={labelWidth} height={labelHeight} rx={4} ry={4}
+              <g className="dwlf-crosshair-time-label" pointerEvents="none">
+                <rect x={box.x} y={box.y} width={box.width} height={box.height} rx={4} ry={4}
                   fill={tooltipBackground} stroke={crosshairColor} strokeWidth={1} />
-                <text x={x + labelWidth / 2} y={yTop + labelHeight / 2} fill={textColor} fontSize={11}
+                <text x={box.x + box.width / 2} y={box.y + box.height / 2} fill={textColor} fontSize={11}
                   textAnchor="middle" alignmentBaseline="middle">
                   {text}
                 </text>
