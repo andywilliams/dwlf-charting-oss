@@ -175,7 +175,10 @@ export default function MarkerOverlay({
         const cy = yScale(p.price) + offsetY;
 
         const label = p.text || text;
-        const labelY = cy + size + 4 + textOffsetY; // below marker by default
+        // Below the marker. An up arrow's body hangs below its tip (cy..cy+size), so its label
+        // starts under the body. Other shapes keep their original baseline at cy + size + 4.
+        const labelBelowArrowUp = shape === 'arrow-up';
+        const labelY = cy + size + (labelBelowArrowUp ? 3 : 4) + textOffsetY;
         const hasTooltip = !!p.tooltip;
 
         // Calculate staggered animation delay
@@ -199,6 +202,7 @@ export default function MarkerOverlay({
                 x={cx}
                 y={labelY}
                 textAnchor="middle"
+                dominantBaseline={labelBelowArrowUp ? 'hanging' : undefined}
                 fontSize={fontSize}
                 fill={textColor}
                 style={{ 
