@@ -176,7 +176,7 @@ export default function MarkerOverlay({
 
         const label = p.text || text;
         // Below the marker. An up arrow's body hangs below its tip (cy..cy+size), so its label
-        // starts under the body; any other shape keeps the baseline just below cy + size.
+        // starts under the body. Other shapes keep their original baseline at cy + size + 4.
         const labelBelowArrowUp = shape === 'arrow-up';
         const labelY = cy + size + (labelBelowArrowUp ? 3 : 4) + textOffsetY;
         const hasTooltip = !!p.tooltip;

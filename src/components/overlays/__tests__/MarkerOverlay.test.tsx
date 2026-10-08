@@ -3,7 +3,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import MarkerOverlay from '../MarkerOverlay';
 
-const draw = (shape: 'arrow-up' | 'arrow-down') => renderToStaticMarkup(
+const draw = (shape: 'arrow-up' | 'arrow-down' | 'circle' | 'none') => renderToStaticMarkup(
   <svg>
     <MarkerOverlay
       points={[{ date: 0, price: 100, text: shape === 'arrow-up' ? 'WL' : 'WH' }]}
@@ -26,8 +26,8 @@ describe('MarkerOverlay labels', () => {
     expect(text).toContain('dominant-baseline="hanging"');
   });
 
-  it("keeps every other shape's label on its baseline just below the marker", () => {
-    const text = label(draw('arrow-down'));
+  it.each(['arrow-down', 'circle', 'none'] as const)("keeps a %s label on its original baseline", (shape) => {
+    const text = label(draw(shape));
     expect(text).toContain('y="211"');
     expect(text).not.toContain('dominant-baseline');
   });
