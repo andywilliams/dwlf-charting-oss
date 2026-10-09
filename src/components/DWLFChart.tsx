@@ -13,6 +13,7 @@ import MarkerOverlay from './overlays/MarkerOverlay.jsx';
 import PositionOverlay from './overlays/PositionOverlay.jsx';
 import useChartPanZoomVirtual from '../hooks/useChartPanZoomVirtual.js';
 import useContainerSize from '../hooks/useContainerSize';
+import useTweenedRange from '../hooks/useTweenedRange';
 import type {
   Annotation,
   ChartSpec,
@@ -26,6 +27,7 @@ import type {
 import type { ChartAnimationState } from '../hooks/useChartAnimations';
 import AnnotationLayer from './overlays/AnnotationLayer';
 import { estimateBarDurationMs } from '../utils/barDuration';
+import { viewportForRange, type VisibleRange } from '../utils/visibleRange';
 import {
   buildPaneScales,
   collectSpecTimes,
@@ -1034,6 +1036,17 @@ export interface DWLFChartProps {
    * When provided, the chart will render based on the current animation phase.
    */
   animationState?: ChartAnimationState;
+  /**
+   * The span of time the x-axis shows (epoch ms), set by the host rather than the reader. It may run
+   * past the last bar into the blank right-hand slots. While set, it replaces pan/zoom (the reader
+   * cannot drag the chart, and the handle's zoom/pan methods do nothing) and compressGaps; a new
+   * range eases from the one on screen. Clearing it returns the chart to its default view.
+   */
+  visibleRange?: VisibleRange;
+  /** How long a change of `visibleRange` takes, in ms (default 700). Reduced motion always jumps. */
+  visibleRangeTransitionMs?: number;
+  /** Called once the chart shows `visibleRange` (after the ease, or at once when it jumps). */
+  onVisibleRangeSettled?: (range: VisibleRange) => void;
 }
 
 export interface DwlfChartHandle {
@@ -1084,6 +1097,9 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
     onCanvasMouseMove,
     onChartCanvasHover,
     animationState,
+    visibleRange,
+    visibleRangeTransitionMs = 700,
+    onVisibleRangeSettled,
   },
   ref,
 ) {
@@ -1125,8 +1141,15 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
   );
 
   const panZoom = useChartPanZoomVirtual(panData, initialVisibleCount, extraRightSlots, timeframe);
-  const panEnabled = enablePanZoom && baseSeriesData.length > 0;
-  const compressEnabled = compressGaps && baseSeriesData.length > 0;
+  // With no bars yet the range has nothing to show, so it is not followed (nor reported settled) until they arrive.
+  const shownRange = useTweenedRange(
+    baseSeriesData.length > 0 ? visibleRange : undefined,
+    visibleRangeTransitionMs,
+    onVisibleRangeSettled,
+  );
+  const fixedRangeEnabled = shownRange !== undefined && baseSeriesData.length > 0;
+  const panEnabled = enablePanZoom && !fixedRangeEnabled && baseSeriesData.length > 0;
+  const compressEnabled = compressGaps && !fixedRangeEnabled && baseSeriesData.length > 0;
 
   const {
     mouseHandlers: panMouseHandlers,
@@ -1173,6 +1196,28 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
       visibleCount: panZoom.visibleCount,
     };
   }, [panEnabled, panZoom.viewportStart, panZoom.viewportEnd, panZoom.visibleCount, indexToTime, slotMs]);
+
+  const baseTimes = useMemo(() => baseSeriesData.map(point => point.t), [baseSeriesData]);
+
+  // The window the chart draws: the host's visibleRange when set, else the reader's pan/zoom, else everything.
+  const activeRange = useMemo(() => {
+    if (fixedRangeEnabled && shownRange) {
+      const { start, end } = viewportForRange(baseTimes, slotMs, shownRange);
+      return {
+        startTime: shownRange.startTime,
+        endTime: Math.max(shownRange.endTime, shownRange.startTime + 1),
+        viewportStart: start,
+        viewportEnd: end,
+        visibleCount: end - start,
+      };
+    }
+    return panEnabled ? panRange : null;
+  }, [fixedRangeEnabled, shownRange, baseTimes, slotMs, panEnabled, panRange]);
+
+  // A host-moved (or cleared) range shifts the scales under a still pointer; drop the hover rather than leave it on the wrong bar.
+  useEffect(() => {
+    setHoverState(null);
+  }, [shownRange]);
 
   const panInitializedRef = useRef(false);
   const panDataLengthRef = useRef(baseSeriesData.length);
@@ -1376,7 +1421,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
       });
     };
 
-    if (!panEnabled || !panRange) {
+    if (!activeRange) {
       if (!compressedTimeData) {
         return chartSpec;
       }
@@ -1395,7 +1440,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
     const filtered = cloneSpec(chartSpec);
     filtered.panes = filtered.panes.map(pane => {
       const nextSeries = pane.series.map(series => {
-        const filteredData = filterSeriesDataForRange(series, panRange.startTime, panRange.endTime, slotMs);
+        const filteredData = filterSeriesDataForRange(series, activeRange.startTime, activeRange.endTime, slotMs);
         if (!Array.isArray(filteredData)) {
           return { ...series, data: filteredData };
         }
@@ -1412,7 +1457,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
       };
     });
     return filtered;
-  }, [chartSpec, panEnabled, panRange, slotMs, indexToTime, compressedTimeData]);
+  }, [chartSpec, activeRange, slotMs, indexToTime, compressedTimeData]);
 
   const { rects: paneRects, heights: paneHeights } = useMemo(
     () => computePaneRects(specForRender, resolvedHeight),
@@ -1436,18 +1481,18 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
     if (compressedTimeData) {
       return compressedTimeData.indexToRaw.map((_, idx) => idx);
     }
-    if (!panEnabled || !panRange) {
+    if (!activeRange) {
       return collectSpecTimes(specForRender);
     }
     const indices: number[] = [];
-    for (let i = panRange.viewportStart; i < panRange.viewportEnd; i += 1) {
+    for (let i = activeRange.viewportStart; i < activeRange.viewportEnd; i += 1) {
       indices.push(indexToTime(i));
     }
     if (!indices.length) {
-      return [panRange.startTime, panRange.endTime];
+      return [activeRange.startTime, activeRange.endTime];
     }
     return indices;
-  }, [compressedTimeData, panEnabled, panRange, specForRender, indexToTime]);
+  }, [compressedTimeData, activeRange, specForRender, indexToTime]);
 
   const xScale = useMemo(() => {
     const safeWidth = Math.max(0, width);
@@ -1462,15 +1507,15 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
     }
     let start = times[0];
     let end = times[times.length - 1];
-    if (panEnabled && panRange) {
-      start = panRange.startTime;
-      end = panRange.endTime;
+    if (activeRange) {
+      start = activeRange.startTime;
+      end = activeRange.endTime;
     }
     if (start === end) {
       end = start + slotMs;
     }
     return d3.scaleUtc().domain([start, end]).range([0, safeWidth]);
-  }, [times, width, panEnabled, panRange, slotMs, compressedTimeData]);
+  }, [times, width, activeRange, slotMs, compressedTimeData]);
 
   const xTicks = useMemo(() => {
     if (!times.length || width <= 0) return [] as number[];

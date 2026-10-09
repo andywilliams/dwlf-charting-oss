@@ -176,6 +176,9 @@ const spec: ChartSpec = {
 | `timeframe` | `string` | `'daily'` | Affects X-axis date formatting (`'daily'`, `'weekly'`, `'4h'`, `'1h'`) |
 | `initialVisibleCount` | `number` | — | Number of candles visible initially (controls default zoom) |
 | `extraRightSlots` | `number` | — | Extra padding on the right edge |
+| `visibleRange` | `{ startTime: number; endTime: number }` | — | Time span (epoch ms) the x-axis shows, set by the host; replaces pan/zoom while set |
+| `visibleRangeTransitionMs` | `number` | `700` | How long a change of `visibleRange` eases for |
+| `onVisibleRangeSettled` | `(range) => void` | — | Called once the chart shows `visibleRange` |
 | `compressGaps` | `boolean` | `false` | Remove weekend/holiday gaps |
 | `crosshairSnapMode` | `'series' \| 'pointer'` | `'series'` | `'pointer'` follows mouse freely, `'series'` snaps to nearest candle |
 | `showCrosshairPriceLabel` | `boolean` | `true` | Show price label on crosshair |
@@ -228,6 +231,16 @@ By default the chart fits data edge-to-edge. To add empty space on the right (us
 This adds 5 candle-widths of empty space to the right of the last data point.
 
 Alternatively, you can append placeholder candles to your data with the same timestamp spacing but no visible data — the chart will render the empty space naturally.
+
+## Steering the View
+
+To move the chart from your own code — a guided tour, a story that zooms to each chapter — pass `visibleRange`, a span of time in epoch milliseconds:
+
+```tsx
+<DWLFChart spec={spec} timeframe="weekly" visibleRange={{ startTime: chapterStart, endTime: chapterEnd }} />
+```
+
+Only the bars in the range (and one either side) are drawn, and the price axis fits them. `endTime` may run past the last bar, into the blank slots, to show something projected ahead. When the range changes, the chart eases from the span on screen to the new one over `visibleRangeTransitionMs` (700 ms by default; `0` jumps). A reader who prefers reduced motion always gets the jump. `onVisibleRangeSettled` fires when the chart arrives, so you can reveal what belongs to the new view only once it is there. While `visibleRange` is set, the reader cannot pan or zoom (the handle's zoom and pan methods do nothing) and `compressGaps` is ignored; clearing it returns the chart to its default view.
 
 ## Annotations
 
