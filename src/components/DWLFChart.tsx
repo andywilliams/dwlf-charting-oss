@@ -1141,7 +1141,12 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
   );
 
   const panZoom = useChartPanZoomVirtual(panData, initialVisibleCount, extraRightSlots, timeframe);
-  const shownRange = useTweenedRange(visibleRange, visibleRangeTransitionMs, onVisibleRangeSettled);
+  // With no bars yet the range has nothing to show, so it is not followed (nor reported settled) until they arrive.
+  const shownRange = useTweenedRange(
+    baseSeriesData.length > 0 ? visibleRange : undefined,
+    visibleRangeTransitionMs,
+    onVisibleRangeSettled,
+  );
   const fixedRangeEnabled = shownRange !== undefined && baseSeriesData.length > 0;
   const panEnabled = enablePanZoom && !fixedRangeEnabled && baseSeriesData.length > 0;
   const compressEnabled = compressGaps && !fixedRangeEnabled && baseSeriesData.length > 0;
@@ -1208,6 +1213,11 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
     }
     return panEnabled ? panRange : null;
   }, [fixedRangeEnabled, shownRange, baseTimes, slotMs, panEnabled, panRange]);
+
+  // A host-moved range shifts the scales under a still pointer; drop the hover rather than leave it on the wrong bar.
+  useEffect(() => {
+    if (fixedRangeEnabled) setHoverState(null);
+  }, [fixedRangeEnabled, shownRange]);
 
   const panInitializedRef = useRef(false);
   const panDataLengthRef = useRef(baseSeriesData.length);

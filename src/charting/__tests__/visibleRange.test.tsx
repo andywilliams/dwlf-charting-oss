@@ -9,7 +9,11 @@ const t0 = Date.UTC(2026, 0, 5);
 const bars = Array.from({ length: 12 }, (_, i) => ({ t: t0 + i * WEEK, o: 100 + i * 10, h: 110 + i * 10, l: 90 + i * 10, c: 105 + i * 10 }));
 const spec: ChartSpec = { panes: [{ id: 'price', heightRatio: 1, yScale: { mode: 'auto' }, series: [{ key: 'price', type: 'ohlc', data: bars }] }] };
 
-/** One wick per drawn candle: the first path in the candle group is the wicks, one `M` each. */
+/**
+ * One wick per drawn candle: the first path in the candle group is the wicks, one `M` each.
+ * Server rendering never measures the container (width 0), so these pin which bars the range keeps
+ * and the price axis they fit, not where on the x-axis the bars land.
+ */
 const candleCount = (markup: string) => (markup.match(/<g class="dwlf-candles"><path d="([^"]*)"/)?.[1].match(/M/g) ?? []).length;
 const yLabels = (markup: string) => [...markup.matchAll(/alignment-baseline="middle">([^<]+)</g)].map(m => Number(m[1]));
 
