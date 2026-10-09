@@ -1214,10 +1214,10 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
     return panEnabled ? panRange : null;
   }, [fixedRangeEnabled, shownRange, baseTimes, slotMs, panEnabled, panRange]);
 
-  // A host-moved range shifts the scales under a still pointer; drop the hover rather than leave it on the wrong bar.
+  // A host-moved (or cleared) range shifts the scales under a still pointer; drop the hover rather than leave it on the wrong bar.
   useEffect(() => {
-    if (fixedRangeEnabled) setHoverState(null);
-  }, [fixedRangeEnabled, shownRange]);
+    setHoverState(null);
+  }, [shownRange]);
 
   const panInitializedRef = useRef(false);
   const panDataLengthRef = useRef(baseSeriesData.length);
