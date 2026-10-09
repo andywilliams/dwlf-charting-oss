@@ -1,7 +1,7 @@
-/** A span of the time axis, in epoch milliseconds. `to` may run past the last bar into the blank slots. */
-export interface TimeRange {
-  from: number;
-  to: number;
+/** A span of the time axis, in epoch milliseconds. `endTime` may run past the last bar into the blank slots. */
+export interface VisibleRange {
+  startTime: number;
+  endTime: number;
 }
 
 /** The first index whose time is at or after `t`; past the last bar, counted in whole slots. */
@@ -35,12 +35,12 @@ const indexAtOrBefore = (times: number[], slotMs: number, t: number): number => 
  * as the pan viewport (real bars, then one blank slot per bar of the timeframe). The range's own
  * times stay the x-axis domain, so a range that moves by less than a bar still moves the axis.
  */
-export function viewportForRange(times: number[], slotMs: number, range: TimeRange): { start: number; end: number } {
+export function viewportForRange(times: number[], slotMs: number, range: VisibleRange): { start: number; end: number } {
   if (times.length === 0) {
     return { start: 0, end: 0 };
   }
-  const start = Math.max(0, indexAtOrAfter(times, slotMs, range.from));
-  const end = Math.max(start, indexAtOrBefore(times, slotMs, range.to) + 1);
+  const start = Math.max(0, indexAtOrAfter(times, slotMs, range.startTime));
+  const end = Math.max(start, indexAtOrBefore(times, slotMs, range.endTime) + 1);
   return { start, end };
 }
 
@@ -48,7 +48,7 @@ export function viewportForRange(times: number[], slotMs: number, range: TimeRan
 export const easeInOutCubic = (k: number): number => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
 
 /** The range `k` of the way from `a` to `b`, eased. */
-export function interpolateRange(a: TimeRange, b: TimeRange, k: number): TimeRange {
+export function interpolateRange(a: VisibleRange, b: VisibleRange, k: number): VisibleRange {
   const e = easeInOutCubic(Math.max(0, Math.min(1, k)));
-  return { from: a.from + (b.from - a.from) * e, to: a.to + (b.to - a.to) * e };
+  return { startTime: a.startTime + (b.startTime - a.startTime) * e, endTime: a.endTime + (b.endTime - a.endTime) * e };
 }

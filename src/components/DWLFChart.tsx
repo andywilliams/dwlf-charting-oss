@@ -27,7 +27,7 @@ import type {
 import type { ChartAnimationState } from '../hooks/useChartAnimations';
 import AnnotationLayer from './overlays/AnnotationLayer';
 import { estimateBarDurationMs } from '../utils/barDuration';
-import { viewportForRange, type TimeRange } from '../utils/visibleRange';
+import { viewportForRange, type VisibleRange } from '../utils/visibleRange';
 import {
   buildPaneScales,
   collectSpecTimes,
@@ -1039,11 +1039,14 @@ export interface DWLFChartProps {
   /**
    * The span of time the x-axis shows (epoch ms), set by the host rather than the reader. It may run
    * past the last bar into the blank right-hand slots. While set, it replaces pan/zoom (the reader
-   * cannot drag the chart) and compressGaps; a new range eases from the one on screen.
+   * cannot drag the chart, and the handle's zoom/pan methods do nothing) and compressGaps; a new
+   * range eases from the one on screen. Clearing it returns the chart to its default view.
    */
-  visibleRange?: TimeRange;
+  visibleRange?: VisibleRange;
   /** How long a change of `visibleRange` takes, in ms (default 700). Reduced motion always jumps. */
   visibleRangeTransitionMs?: number;
+  /** Called once the chart shows `visibleRange` (after the ease, or at once when it jumps). */
+  onVisibleRangeSettled?: (range: VisibleRange) => void;
 }
 
 export interface DwlfChartHandle {
@@ -1096,6 +1099,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
     animationState,
     visibleRange,
     visibleRangeTransitionMs = 700,
+    onVisibleRangeSettled,
   },
   ref,
 ) {
@@ -1137,7 +1141,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
   );
 
   const panZoom = useChartPanZoomVirtual(panData, initialVisibleCount, extraRightSlots, timeframe);
-  const shownRange = useTweenedRange(visibleRange, visibleRangeTransitionMs);
+  const shownRange = useTweenedRange(visibleRange, visibleRangeTransitionMs, onVisibleRangeSettled);
   const fixedRangeEnabled = shownRange !== undefined && baseSeriesData.length > 0;
   const panEnabled = enablePanZoom && !fixedRangeEnabled && baseSeriesData.length > 0;
   const compressEnabled = compressGaps && !fixedRangeEnabled && baseSeriesData.length > 0;
@@ -1195,8 +1199,8 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
     if (fixedRangeEnabled && shownRange) {
       const { start, end } = viewportForRange(baseTimes, slotMs, shownRange);
       return {
-        startTime: shownRange.from,
-        endTime: Math.max(shownRange.to, shownRange.from + 1),
+        startTime: shownRange.startTime,
+        endTime: Math.max(shownRange.endTime, shownRange.startTime + 1),
         viewportStart: start,
         viewportEnd: end,
         visibleCount: end - start,

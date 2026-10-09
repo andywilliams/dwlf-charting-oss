@@ -16,12 +16,12 @@ const yLabels = (markup: string) => [...markup.matchAll(/alignment-baseline="mid
 describe('DWLFChart visibleRange', () => {
   it('draws only the bars inside the host-set range, with one bar either side', () => {
     expect(candleCount(renderToStaticMarkup(<DWLFChart spec={spec} timeframe="weekly" />))).toBe(12);
-    const ranged = renderToStaticMarkup(<DWLFChart spec={spec} timeframe="weekly" visibleRange={{ from: bars[3].t, to: bars[5].t }} />);
+    const ranged = renderToStaticMarkup(<DWLFChart spec={spec} timeframe="weekly" visibleRange={{ startTime: bars[3].t, endTime: bars[5].t }} />);
     expect(candleCount(ranged)).toBe(5);
   });
 
   it('scales the price axis to the bars in range', () => {
-    const ranged = renderToStaticMarkup(<DWLFChart spec={spec} timeframe="weekly" visibleRange={{ from: bars[3].t, to: bars[5].t }} />);
+    const ranged = renderToStaticMarkup(<DWLFChart spec={spec} timeframe="weekly" visibleRange={{ startTime: bars[3].t, endTime: bars[5].t }} />);
     // Bars 2..6 span 110..170; nothing from the rest of the series (90..220) widens the axis.
     expect(Math.min(...yLabels(ranged))).toBeGreaterThanOrEqual(100);
     expect(Math.max(...yLabels(ranged))).toBeLessThanOrEqual(180);
@@ -29,7 +29,7 @@ describe('DWLFChart visibleRange', () => {
 
   it('can reach past the last bar into the blank slots', () => {
     const last = bars[bars.length - 1].t;
-    const ranged = renderToStaticMarkup(<DWLFChart spec={spec} timeframe="weekly" visibleRange={{ from: bars[9].t, to: last + 6 * WEEK }} />);
+    const ranged = renderToStaticMarkup(<DWLFChart spec={spec} timeframe="weekly" visibleRange={{ startTime: bars[9].t, endTime: last + 6 * WEEK }} />);
     // Bars 9..11, plus bar 8 as the one-bar margin before the range.
     expect(candleCount(ranged)).toBe(4);
   });
