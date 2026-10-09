@@ -64,6 +64,7 @@ export type {
 
 // Utility exports
 export * from './utils/indicators.js';
+export type { TimeRange } from './utils/visibleRange';
 
 // Chart Annotations
 export { default as AnnotationLayer } from './components/overlays/AnnotationLayer';
