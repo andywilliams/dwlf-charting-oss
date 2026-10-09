@@ -37,7 +37,7 @@ describe('interpolateRange', () => {
     expect(interpolateRange(a, b, 0)).toEqual(a);
     expect(interpolateRange(a, b, 1)).toEqual(b);
     expect(interpolateRange(a, b, 0.5)).toEqual({ startTime: 25, endTime: 200 });
-    expect(interpolateRange(a, b, 0.25).from).toBeCloseTo(50 * easeInOutCubic(0.25));
+    expect(interpolateRange(a, b, 0.25).startTime).toBeCloseTo(50 * easeInOutCubic(0.25));
   });
 
   it('clamps progress outside 0..1', () => {
