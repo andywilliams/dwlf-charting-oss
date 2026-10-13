@@ -30,4 +30,19 @@ describe('DWLFChart price axis', () => {
       expect(y).toBeLessThanOrEqual(HEIGHT - 6 - 15);
     }
   });
+
+  it('keeps a label near the foot of an upper pane, and leaves it out only where the time axis is', () => {
+    // Two equal panes fixed at -5 to 95: the 0 tick sits 5% of a pane's height (about 7px) above its foot.
+    const pane = (id: string) => ({
+      id,
+      heightRatio: 1,
+      yScale: { mode: 'fixed' as const, min: -5, max: 95 },
+      series: [{ key: id, type: 'line' as const, data: bars.map(b => ({ t: b.t, v: 50 })) }],
+    });
+    const markup = renderToStaticMarkup(<DWLFChart spec={{ panes: [pane('upper'), pane('lower')] }} timeframe="1d" />);
+    const [upper, lower] = [...markup.matchAll(/<g class="dwlf-y-axis"[^>]*>(.*?)<\/g>/g)].map(m => [...m[1].matchAll(/>([^<]+)<\/text>/g)].map(t => t[1]));
+    expect(upper).toContain('0.00');
+    expect(lower).not.toContain('0.00');
+    expect(lower).toContain('20.00');
+  });
 });

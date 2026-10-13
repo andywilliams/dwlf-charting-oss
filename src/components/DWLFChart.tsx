@@ -924,7 +924,7 @@ export const placeXTickLabels = <T extends { text: string; x: number }>(ticks: T
     .map(({ tick, x }) => ({ ...tick, x }));
 };
 
-/** Half the height of a price-axis label at its 11px font, centred on its tick. */
+/** Half the height of a price-axis label at its 11px font, centred on its tick (dominant-baseline middle). */
 const Y_TICK_HALF_PX = 6;
 /** The band at the foot of the chart that the time-axis labels (10px, baseline 6px up) are drawn in. */
 const X_AXIS_BAND_PX = 15;
@@ -2176,7 +2176,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
         }}
       >
         <rect x={0} y={0} width={width} height={resolvedHeight} fill={background} />
-        {paneRects.map(({ pane, y, height: paneHeight }) => {
+        {paneRects.map(({ pane, y, height: paneHeight }, paneIndex) => {
           const scale = paneScales[pane.id];
           if (!scale) return null;
           const ticks = d3.scaleLinear().domain(scale.domain).ticks(4);
@@ -2302,7 +2302,8 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
                   {placeYTickLabels(
                     ticks.map(tick => ({ tick, y: scale.scale(tick) })),
                     paneHeight,
-                    y + paneHeight >= resolvedHeight - 0.5,
+                    // The time-axis labels are drawn over the foot of the last pane.
+                    paneIndex === paneRects.length - 1,
                   ).map(({ tick, y: tickY }, index) => (
                     <text
                       key={`${tick}-${index}`}
@@ -2311,6 +2312,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
                       fill={axisColor}
                       fontSize={11}
                       alignmentBaseline="middle"
+                      dominantBaseline="middle"
                     >
                       {formatNumber(tick)}
                     </text>
