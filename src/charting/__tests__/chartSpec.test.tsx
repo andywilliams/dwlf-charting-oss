@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { DWLFChart, __computeSeriesHoverForTests, crosshairTimeLabelBox, xTickLabelX } from '../../components';
+import { DWLFChart, __computeSeriesHoverForTests, crosshairTimeLabelBox, placeXTickLabels } from '../../components';
 import type { ChartSpec, PaneSpec, SeriesSpec } from '../types';
 import { collectSpecTimes, findClosestTime, resolvePaneDomain } from '../scales';
 
@@ -163,13 +163,28 @@ describe('crosshair time label', () => {
   });
 });
 
-describe('time-axis tick label', () => {
-  it('centres on its tick away from the edges', () => {
-    expect(xTickLabelX(6, 500, 1000)).toBe(500);
+describe('time-axis tick labels', () => {
+  const tick = (x: number, text = '1 Oct') => ({ text, x });
+
+  it('stay centred on their ticks away from the edges', () => {
+    expect(placeXTickLabels([tick(100), tick(300)], 1000)).toEqual([tick(100), tick(300)]);
   });
-  it('moves in just far enough to stay inside the plot at both edges', () => {
-    expect(xTickLabelX(6, 2, 1000)).toBe(18);
-    expect(xTickLabelX(6, 995, 1000)).toBe(982);
+
+  it('move in just far enough to fit at either edge (5 characters, 15px each side)', () => {
+    expect(placeXTickLabels([tick(2), tick(500), tick(995)], 1000)).toEqual([tick(15), tick(500), tick(985)]);
+  });
+
+  it('are left out when moving in would overlap the neighbour', () => {
+    // 16 characters: 48px each side. Moved to 48, the first reaches 96, where the next one starts.
+    const long = (x: number) => tick(x, '2026-01-05 00:00');
+    expect(placeXTickLabels([long(5), long(140), long(400)], 1000)).toEqual([long(140), long(400)]);
+    expect(placeXTickLabels([long(5), long(144), long(400)], 1000)).toEqual([long(48), long(144), long(400)]);
+    expect(placeXTickLabels([long(600), long(860), long(995)], 1000)).toEqual([long(600), long(860)]);
+    expect(placeXTickLabels([long(600), long(856), long(995)], 1000)).toEqual([long(600), long(856), long(952)]);
+  });
+
+  it('are left out when wider than the plot', () => {
+    expect(placeXTickLabels([tick(20)], 20)).toEqual([]);
   });
 });
 

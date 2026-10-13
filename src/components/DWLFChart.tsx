@@ -901,13 +901,27 @@ export const crosshairTimeLabelBox = (textLength: number, crosshairX: number, pl
   return { x, y: plotHeight - height - 1, width, height };
 };
 
+/** Estimated width of a time-axis label character at the axis's 10px font, on the generous side. */
+const X_TICK_CHAR_PX = 6;
+
 /**
- * Where a time-axis tick's label is centred: on its tick, moved in just far enough that the label
- * (at 10px, allowing 6px a character) is not cut off at either edge of the plot.
+ * Where each time-axis tick label is drawn. A label that would be cut off at an edge of the plot moves
+ * in just far enough to fit, so it still touches its tick; one that would then overlap its neighbour,
+ * or is wider than the plot, is left out rather than drawn clipped or on top of another.
  */
-export const xTickLabelX = (textLength: number, tickX: number, plotWidth: number) => {
-  const half = (textLength * 6) / 2;
-  return Math.max(half, Math.min(plotWidth - half, tickX));
+export const placeXTickLabels = <T extends { text: string; x: number }>(ticks: T[], plotWidth: number): T[] => {
+  const placed = ticks.map(tick => {
+    const half = (tick.text.length * X_TICK_CHAR_PX) / 2;
+    return { tick, half, x: Math.max(half, Math.min(plotWidth - half, tick.x)) };
+  });
+  return placed
+    .filter(({ tick, half, x }, i) => {
+      if (half * 2 > plotWidth) return false;
+      if (x === tick.x) return true;
+      const neighbour = placed[x > tick.x ? i + 1 : i - 1];
+      return !neighbour || Math.abs(neighbour.x - x) >= neighbour.half + half;
+    })
+    .map(({ tick, x }) => ({ ...tick, x }));
 };
 
 export interface AxisColorConfig {
@@ -2306,21 +2320,14 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
           </g>
         )}
         <g className="dwlf-x-axis">
-          {xTicks.map(tick => {
-            const label = formatTime(getRawTimeFromValue(tick), specForRender.timeFormatter);
-            return (
-              <text
-                key={`tick-${tick}`}
-                x={xTickLabelX(label.length, xScale(tick), width)}
-                y={resolvedHeight - 6}
-                fill={axisColor}
-                fontSize={10}
-                textAnchor="middle"
-              >
-                {label}
-              </text>
-            );
-          })}
+          {placeXTickLabels(
+            xTicks.map(tick => ({ tick, x: xScale(tick), text: formatTime(getRawTimeFromValue(tick), specForRender.timeFormatter) })),
+            width,
+          ).map(({ tick, x, text }) => (
+            <text key={`tick-${tick}`} x={x} y={resolvedHeight - 6} fill={axisColor} fontSize={10} textAnchor="middle">
+              {text}
+            </text>
+          ))}
           {hover && showCrosshairTimeLabel && (() => {
             // Drawn after the ticks so it covers the tick under the crosshair; never catches the pointer,
             // so annotations and drag handles under it stay usable.
