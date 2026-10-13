@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { DWLFChart, __computeSeriesHoverForTests, crosshairTimeLabelBox, placeXTickLabels } from '../../components';
+import { DWLFChart, __computeSeriesHoverForTests, crosshairTimeLabelBox, placeXTickLabels, placeYTickLabels } from '../../components';
 import type { ChartSpec, PaneSpec, SeriesSpec } from '../types';
 import { collectSpecTimes, findClosestTime, resolvePaneDomain } from '../scales';
 
@@ -185,6 +185,22 @@ describe('time-axis tick labels', () => {
 
   it('are left out when wider than the plot', () => {
     expect(placeXTickLabels([tick(20)], 20)).toEqual([]);
+  });
+});
+
+describe('price-axis tick labels', () => {
+  const at = (...ys: number[]) => ys.map(y => ({ y }));
+
+  it('are left out where they would be cut off at the top or bottom of a pane (6px each side)', () => {
+    expect(placeYTickLabels(at(5, 6, 100, 194, 195), 200, false)).toEqual(at(6, 100, 194));
+  });
+
+  it('are left out of the 15px band the time-axis labels use, in the pane above the time axis', () => {
+    expect(placeYTickLabels(at(100, 179, 180), 200, true)).toEqual(at(100, 179));
+  });
+
+  it('skip a tick with no position', () => {
+    expect(placeYTickLabels(at(Number.NaN, 100), 200, false)).toEqual(at(100));
   });
 });
 

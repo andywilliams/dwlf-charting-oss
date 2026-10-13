@@ -924,6 +924,21 @@ export const placeXTickLabels = <T extends { text: string; x: number }>(ticks: T
     .map(({ tick, x }) => ({ ...tick, x }));
 };
 
+/** Half the height of a price-axis label at its 11px font, centred on its tick (dominant-baseline middle). */
+const Y_TICK_HALF_PX = 6;
+/** The band at the foot of the chart that the time-axis labels (10px, baseline 6px up) are drawn in. */
+const X_AXIS_BAND_PX = 15;
+
+/**
+ * Which price-axis tick labels are drawn in a pane. A label that would be cut off at the top or bottom
+ * of the pane is left out, and so is one in the bottom pane that would sit on the time-axis labels.
+ * The tick's grid line is still drawn.
+ */
+export const placeYTickLabels = <T extends { y: number }>(ticks: T[], paneHeight: number, aboveTimeAxis: boolean): T[] => {
+  const floor = paneHeight - Y_TICK_HALF_PX - (aboveTimeAxis ? X_AXIS_BAND_PX : 0);
+  return ticks.filter(({ y }) => Number.isFinite(y) && y >= Y_TICK_HALF_PX && y <= floor);
+};
+
 export interface AxisColorConfig {
   light?: string;
   dark?: string;
@@ -2161,7 +2176,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
         }}
       >
         <rect x={0} y={0} width={width} height={resolvedHeight} fill={background} />
-        {paneRects.map(({ pane, y, height: paneHeight }) => {
+        {paneRects.map(({ pane, y, height: paneHeight }, paneIndex) => {
           const scale = paneScales[pane.id];
           if (!scale) return null;
           const ticks = d3.scaleLinear().domain(scale.domain).ticks(4);
@@ -2284,14 +2299,20 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
               )}
               {!pane.hideYAxis && (
                 <g className="dwlf-y-axis" transform={`translate(${width - 40}, 0)`}>
-                  {ticks.map((tick, index) => (
+                  {placeYTickLabels(
+                    ticks.map(tick => ({ tick, y: scale.scale(tick) })),
+                    paneHeight,
+                    // The time-axis labels are drawn over the foot of the last pane.
+                    paneIndex === paneRects.length - 1,
+                  ).map(({ tick, y: tickY }, index) => (
                     <text
                       key={`${tick}-${index}`}
                       x={0}
-                      y={scale.scale(tick)}
+                      y={tickY}
                       fill={axisColor}
                       fontSize={11}
                       alignmentBaseline="middle"
+                      dominantBaseline="middle"
                     >
                       {formatNumber(tick)}
                     </text>
