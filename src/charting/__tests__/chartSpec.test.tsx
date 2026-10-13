@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { DWLFChart, __computeSeriesHoverForTests, crosshairTimeLabelBox } from '../../components';
+import { DWLFChart, __computeSeriesHoverForTests, crosshairTimeLabelBox, xTickLabelX } from '../../components';
 import type { ChartSpec, PaneSpec, SeriesSpec } from '../types';
 import { collectSpecTimes, findClosestTime, resolvePaneDomain } from '../scales';
 
@@ -160,6 +160,16 @@ describe('crosshair time label', () => {
   it('stays inside the plot at both edges', () => {
     expect(crosshairTimeLabelBox(10, 5, 1000, 400).x).toBe(0);
     expect(crosshairTimeLabelBox(10, 995, 1000, 400).x).toBe(920);
+  });
+});
+
+describe('time-axis tick label', () => {
+  it('centres on its tick away from the edges', () => {
+    expect(xTickLabelX(6, 500, 1000)).toBe(500);
+  });
+  it('moves in just far enough to stay inside the plot at both edges', () => {
+    expect(xTickLabelX(6, 2, 1000)).toBe(18);
+    expect(xTickLabelX(6, 995, 1000)).toBe(982);
   });
 });
 

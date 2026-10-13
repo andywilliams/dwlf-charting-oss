@@ -901,6 +901,15 @@ export const crosshairTimeLabelBox = (textLength: number, crosshairX: number, pl
   return { x, y: plotHeight - height - 1, width, height };
 };
 
+/**
+ * Where a time-axis tick's label is centred: on its tick, moved in just far enough that the label
+ * (at 10px, allowing 6px a character) is not cut off at either edge of the plot.
+ */
+export const xTickLabelX = (textLength: number, tickX: number, plotWidth: number) => {
+  const half = (textLength * 6) / 2;
+  return Math.max(half, Math.min(plotWidth - half, tickX));
+};
+
 export interface AxisColorConfig {
   light?: string;
   dark?: string;
@@ -2297,18 +2306,21 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
           </g>
         )}
         <g className="dwlf-x-axis">
-          {xTicks.map(tick => (
-            <text
-              key={`tick-${tick}`}
-              x={xScale(tick)}
-              y={resolvedHeight - 6}
-              fill={axisColor}
-              fontSize={10}
-              textAnchor="middle"
-            >
-              {formatTime(getRawTimeFromValue(tick), specForRender.timeFormatter)}
-            </text>
-          ))}
+          {xTicks.map(tick => {
+            const label = formatTime(getRawTimeFromValue(tick), specForRender.timeFormatter);
+            return (
+              <text
+                key={`tick-${tick}`}
+                x={xTickLabelX(label.length, xScale(tick), width)}
+                y={resolvedHeight - 6}
+                fill={axisColor}
+                fontSize={10}
+                textAnchor="middle"
+              >
+                {label}
+              </text>
+            );
+          })}
           {hover && showCrosshairTimeLabel && (() => {
             // Drawn after the ticks so it covers the tick under the crosshair; never catches the pointer,
             // so annotations and drag handles under it stay usable.
