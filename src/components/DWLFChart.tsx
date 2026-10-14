@@ -4,6 +4,7 @@ import React, {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -28,6 +29,7 @@ import type { ChartAnimationState } from '../hooks/useChartAnimations';
 import AnnotationLayer from './overlays/AnnotationLayer';
 import { estimateBarDurationMs } from '../utils/barDuration';
 import { viewportForRange, type VisibleRange } from '../utils/visibleRange';
+import { carryViewport, continuesSeries, type ViewportWindow } from '../utils/viewportCarry';
 import {
   buildPaneScales,
   collectSpecTimes,
@@ -1078,13 +1080,29 @@ export interface DWLFChartProps {
    * The span of time the x-axis shows (epoch ms), set by the host rather than the reader. It may run
    * past the last bar into the blank right-hand slots. While set, it replaces pan/zoom (the reader
    * cannot drag the chart, and the handle's zoom/pan methods do nothing) and compressGaps; a new
-   * range eases from the one on screen. Clearing it returns the chart to its default view.
+   * range eases from the one on screen. Clearing it returns the chart to its default view, or to the
+   * window last given to the handle's `setVisibleTimeRange`.
    */
   visibleRange?: VisibleRange;
   /** How long a change of `visibleRange` takes, in ms (default 700). Reduced motion always jumps. */
   visibleRangeTransitionMs?: number;
   /** Called once the chart shows `visibleRange` (after the ease, or at once when it jumps). */
   onVisibleRangeSettled?: (range: VisibleRange) => void;
+  /**
+   * Called when the reader's pan/zoom window changes, including when bars are added under it. Only
+   * while pan/zoom is on (`enablePanZoom`, no `visibleRange`). `startIndex` is the first bar shown, so
+   * a small value means the reader is near the oldest loaded bar; `barCount` is the bars loaded.
+   */
+  onViewportChange?: (viewport: ChartViewport) => void;
+}
+
+/** The reader's pan/zoom window, as `onViewportChange` reports it. Indices count real bars, then blank slots. */
+export interface ChartViewport extends VisibleRange {
+  startIndex: number;
+  endIndex: number;
+  barCount: number;
+  firstTime: number;
+  lastTime: number;
 }
 
 export interface DwlfChartHandle {
@@ -1103,6 +1121,13 @@ export interface DwlfChartHandle {
   resetView(): void;
   panToStart(): void;
   panToEnd(): void;
+  /** The time span on screen (the host's `visibleRange` while one is set), or null before any bars. */
+  getVisibleTimeRange(): VisibleRange | null;
+  /**
+   * Moves the reader's pan/zoom window to a time span. While `visibleRange` is set, or before any bars,
+   * it is kept and applied when pan/zoom takes over, so a host can hand the reader the window an ease ended on.
+   */
+  setVisibleTimeRange(range: VisibleRange): void;
 }
 
 const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart(
@@ -1138,6 +1163,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
     visibleRange,
     visibleRangeTransitionMs = 700,
     onVisibleRangeSettled,
+    onViewportChange,
   },
   ref,
 ) {
@@ -1195,6 +1221,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
     zoomIn: panZoomIn,
     zoomOut: panZoomOut,
     resetView: panResetView,
+    setViewport: panSetViewport,
     panToStart: panStart,
     panToEnd: panEnd,
   } = panZoom;
@@ -1258,33 +1285,71 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
   }, [shownRange]);
 
   const panInitializedRef = useRef(false);
-  const panDataLengthRef = useRef(baseSeriesData.length);
+  // The series the pan window was last placed on, to tell an extended series from a replaced one.
+  const panSeriesRef = useRef<{ bars: Array<{ t: number }>; times: number[] } | null>(null);
+  // A window for pan/zoom to open on, from setVisibleTimeRange while pan/zoom could not take it.
+  const pendingTimeRangeRef = useRef<VisibleRange | null>(null);
+  // The window just placed, until the pan state shows it, so onViewportChange skips the frame in between.
+  const placedWindowRef = useRef<ViewportWindow | null>(null);
+  const panWindowRef = useRef<ViewportWindow>({ start: panZoom.viewportStart, end: panZoom.viewportEnd });
+  panWindowRef.current = { start: panZoom.viewportStart, end: panZoom.viewportEnd };
 
-  useEffect(() => {
-    if (!panEnabled) {
+  // Places the window when the bars change: the same series grown or revised keeps the reader's view
+  // (carryViewport); a different series, or pan/zoom taking over, opens on a pending range or the
+  // latest bars. A layout effect, so the shifted window is what gets painted.
+  useLayoutEffect(() => {
+    if (!panEnabled || baseSeriesData.length === 0) {
       panInitializedRef.current = false;
       return;
     }
-    if (baseSeriesData.length === 0) {
-      panInitializedRef.current = false;
+    const prev = panSeriesRef.current;
+    panSeriesRef.current = { bars: baseSeriesData, times: baseTimes };
+    const sameTimes = !!prev
+      && prev.times.length === baseTimes.length
+      && prev.times[0] === baseTimes[0]
+      && prev.times[prev.times.length - 1] === baseTimes[baseTimes.length - 1];
+    if (panInitializedRef.current && sameTimes) {
       return;
     }
-    if (!panInitializedRef.current) {
-      panResetView();
-      panInitializedRef.current = true;
-      panDataLengthRef.current = baseSeriesData.length;
-      return;
+    let next: ViewportWindow | null = null;
+    if (panInitializedRef.current && prev && continuesSeries(prev.bars, baseSeriesData)) {
+      next = carryViewport(prev.times, baseTimes, panWindowRef.current, extraRightSlots);
+    } else if (pendingTimeRangeRef.current) {
+      const ranged = viewportForRange(baseTimes, slotMs, pendingTimeRangeRef.current);
+      if (ranged.end > ranged.start) next = ranged;
     }
-    if (baseSeriesData.length !== panDataLengthRef.current) {
-      panResetView();
-      panDataLengthRef.current = baseSeriesData.length;
-    }
-  }, [panEnabled, baseSeriesData.length, panResetView]);
+    pendingTimeRangeRef.current = null;
+    panInitializedRef.current = true;
+    const total = baseTimes.length + extraRightSlots;
+    const count = Math.min(initialVisibleCount, total);
+    const target = next ?? { start: total - count, end: total };
+    const placed = panSetViewport(target.start, target.end);
+    const current = panWindowRef.current;
+    placedWindowRef.current = placed.start === current.start && placed.end === current.end ? null : placed;
+  }, [panEnabled, baseSeriesData, baseTimes, extraRightSlots, slotMs, initialVisibleCount, panSetViewport]);
 
+  const lastReportedViewportRef = useRef('');
   useEffect(() => {
-    if (!panEnabled) return;
-    panInitializedRef.current = false;
-  }, [spec, panEnabled]);
+    if (!onViewportChange || !panRange || baseTimes.length === 0) return;
+    const placed = placedWindowRef.current;
+    if (placed) {
+      if (placed.start !== panRange.viewportStart || placed.end !== panRange.viewportEnd) return;
+      placedWindowRef.current = null;
+    }
+    const viewport: ChartViewport = {
+      startTime: panRange.startTime,
+      endTime: panRange.endTime,
+      startIndex: panRange.viewportStart,
+      endIndex: panRange.viewportEnd,
+      barCount: baseTimes.length,
+      firstTime: baseTimes[0],
+      lastTime: baseTimes[baseTimes.length - 1],
+    };
+    const key = [viewport.startIndex, viewport.endIndex, viewport.barCount, viewport.firstTime, viewport.lastTime].join(':');
+    if (key === lastReportedViewportRef.current) return;
+    lastReportedViewportRef.current = key;
+    onViewportChange(viewport);
+  }, [onViewportChange, panRange, baseTimes]);
 
   const compressedTimeData = useMemo(() => {
     if (!compressEnabled) {
@@ -2093,6 +2158,30 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
     panMouseHandlers.onMouseLeave(event);
   }, [panEnabled, panMouseHandlers]);
 
+  const activeRangeRef = useRef(activeRange);
+  activeRangeRef.current = activeRange;
+  const panEnabledRef = useRef(panEnabled);
+  panEnabledRef.current = panEnabled;
+  // The host's range, not the one on screen: a first range is reported settled before the chart has
+  // drawn it, while pan/zoom still looks active, and the window must wait for the hand-off all the same.
+  const hostRangeRef = useRef(visibleRange);
+  hostRangeRef.current = visibleRange;
+
+  const getVisibleTimeRange = useCallback((): VisibleRange | null => {
+    const range = activeRangeRef.current;
+    return range ? { startTime: range.startTime, endTime: range.endTime } : null;
+  }, []);
+
+  const setVisibleTimeRange = useCallback((range: VisibleRange) => {
+    if (hostRangeRef.current || !panEnabledRef.current || !panInitializedRef.current) {
+      pendingTimeRangeRef.current = range;
+      return;
+    }
+    const times = panSeriesRef.current?.times ?? [];
+    const { start, end } = viewportForRange(times, slotMs, range);
+    if (end > start) panSetViewport(start, end);
+  }, [slotMs, panSetViewport]);
+
   useImperativeHandle(ref, () => ({
     setSpec,
     addPane,
@@ -2109,7 +2198,11 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
     resetView: handleResetView,
     panToStart: handlePanToStart,
     panToEnd: handlePanToEnd,
+    getVisibleTimeRange,
+    setVisibleTimeRange,
   }), [
+    getVisibleTimeRange,
+    setVisibleTimeRange,
     setSpec,
     addPane,
     removePane,

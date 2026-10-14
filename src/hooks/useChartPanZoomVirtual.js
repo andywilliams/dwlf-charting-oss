@@ -204,6 +204,17 @@ export default function useChartPanZoomVirtual(
     setViewportEnd(end);
   }, [initialVisibleCount, clampWindow, DATA_MAX]);
 
+  // Sets the window directly, clamped like any pan; returns the window it settled on.
+  const setViewport = useCallback(
+    (startIndex, endIndex) => {
+      const { start, end } = clampWindow(startIndex, endIndex - startIndex);
+      setViewportStart(start);
+      setViewportEnd(end);
+      return { start, end };
+    },
+    [clampWindow]
+  );
+
   const panToStart = useCallback(() => {
     const { start, end } = clampWindow(0, visibleCount);
     setViewportStart(start);
@@ -234,6 +245,7 @@ export default function useChartPanZoomVirtual(
     zoomIn,
     zoomOut,
     resetView,
+    setViewport,
     panToStart,
     panToEnd,
 
