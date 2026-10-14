@@ -1300,9 +1300,12 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
 
   // Places the window when the bars change (nextPanWindow): the same series grown or revised keeps
   // the reader's view; a different series, or pan/zoom taking over, opens on a pending range or the
-  // latest bars. A layout effect, so the placed window is what gets painted.
+  // latest bars. A layout effect, so the placed window is what gets painted. Waits while the host
+  // sets a range: on the render its first bars arrive the tween has not drawn it yet and pan/zoom
+  // looks active, and placing then would spend a handed-over range before the hand-off.
+  const hostRangeSet = visibleRange !== undefined;
   useIsomorphicLayoutEffect(() => {
-    if (!panEnabled || baseSeriesData.length === 0) {
+    if (!panEnabled || hostRangeSet || baseSeriesData.length === 0) {
       panInitializedRef.current = false;
       return;
     }
@@ -1324,11 +1327,11 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
     if (!placedWindow) return;
     const placed = panSetViewport(placedWindow.start, placedWindow.end);
     placedWindowRef.current = placed.start === current.start && placed.end === current.end ? null : placed;
-  }, [panEnabled, baseSeriesData, baseTimes, extraRightSlots, slotMs, initialVisibleCount, panSetViewport]);
+  }, [panEnabled, hostRangeSet, baseSeriesData, baseTimes, extraRightSlots, slotMs, initialVisibleCount, panSetViewport]);
 
   const lastReportedViewportRef = useRef('');
   useEffect(() => {
-    if (!panRange || baseTimes.length === 0) return;
+    if (!panRange || hostRangeSet || baseTimes.length === 0) return;
     const placed = placedWindowRef.current;
     if (placed) {
       if (placed.start !== panRange.viewportStart || placed.end !== panRange.viewportEnd) return;
@@ -1348,7 +1351,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
     if (key === lastReportedViewportRef.current) return;
     lastReportedViewportRef.current = key;
     onViewportChange(viewport);
-  }, [onViewportChange, panRange, baseTimes]);
+  }, [onViewportChange, panRange, hostRangeSet, baseTimes]);
 
   const compressedTimeData = useMemo(() => {
     if (!compressEnabled) {
