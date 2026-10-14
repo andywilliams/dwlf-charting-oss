@@ -29,7 +29,11 @@ import type { ChartAnimationState } from '../hooks/useChartAnimations';
 import AnnotationLayer from './overlays/AnnotationLayer';
 import { estimateBarDurationMs } from '../utils/barDuration';
 import { viewportForRange, type VisibleRange } from '../utils/visibleRange';
-import { carryViewport, continuesSeries, type ViewportWindow } from '../utils/viewportCarry';
+import { nextPanWindow, type ViewportWindow } from '../utils/viewportCarry';
+
+// Layout timing in the browser; on the server, where layout effects never run, a plain effect, so
+// React 16-18 server renders do not warn.
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 import {
   buildPaneScales,
   collectSpecTimes,
@@ -1121,7 +1125,7 @@ export interface DwlfChartHandle {
   resetView(): void;
   panToStart(): void;
   panToEnd(): void;
-  /** The time span on screen (the host's `visibleRange` while one is set), or null before any bars. */
+  /** The time span on screen (the host's `visibleRange` while one is set, every bar without pan/zoom), or null before any bars. */
   getVisibleTimeRange(): VisibleRange | null;
   /**
    * Moves the reader's pan/zoom window to a time span. While `visibleRange` is set, or before any bars,
@@ -1294,48 +1298,43 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
   const panWindowRef = useRef<ViewportWindow>({ start: panZoom.viewportStart, end: panZoom.viewportEnd });
   panWindowRef.current = { start: panZoom.viewportStart, end: panZoom.viewportEnd };
 
-  // Places the window when the bars change: the same series grown or revised keeps the reader's view
-  // (carryViewport); a different series, or pan/zoom taking over, opens on a pending range or the
-  // latest bars. A layout effect, so the shifted window is what gets painted.
-  useLayoutEffect(() => {
+  // Places the window when the bars change (nextPanWindow): the same series grown or revised keeps
+  // the reader's view; a different series, or pan/zoom taking over, opens on a pending range or the
+  // latest bars. A layout effect, so the placed window is what gets painted.
+  useIsomorphicLayoutEffect(() => {
     if (!panEnabled || baseSeriesData.length === 0) {
       panInitializedRef.current = false;
       return;
     }
-    const prev = panSeriesRef.current;
-    panSeriesRef.current = { bars: baseSeriesData, times: baseTimes };
-    const sameTimes = !!prev
-      && prev.times.length === baseTimes.length
-      && prev.times[0] === baseTimes[0]
-      && prev.times[prev.times.length - 1] === baseTimes[baseTimes.length - 1];
-    if (panInitializedRef.current && sameTimes) {
-      return;
-    }
-    let next: ViewportWindow | null = null;
-    if (panInitializedRef.current && prev && continuesSeries(prev.bars, baseSeriesData)) {
-      next = carryViewport(prev.times, baseTimes, panWindowRef.current, extraRightSlots);
-    } else if (pendingTimeRangeRef.current) {
-      const ranged = viewportForRange(baseTimes, slotMs, pendingTimeRangeRef.current);
-      if (ranged.end > ranged.start) next = ranged;
-    }
-    pendingTimeRangeRef.current = null;
-    panInitializedRef.current = true;
-    const total = baseTimes.length + extraRightSlots;
-    const count = Math.min(initialVisibleCount, total);
-    const target = next ?? { start: total - count, end: total };
-    const placed = panSetViewport(target.start, target.end);
     const current = panWindowRef.current;
+    const { window: placedWindow, fresh } = nextPanWindow({
+      prev: panSeriesRef.current,
+      bars: baseSeriesData,
+      times: baseTimes,
+      initialized: panInitializedRef.current,
+      pending: pendingTimeRangeRef.current,
+      window: current,
+      extraSlots: extraRightSlots,
+      initialVisibleCount,
+      slotMs,
+    });
+    panSeriesRef.current = { bars: baseSeriesData, times: baseTimes };
+    panInitializedRef.current = true;
+    if (fresh) pendingTimeRangeRef.current = null;
+    if (!placedWindow) return;
+    const placed = panSetViewport(placedWindow.start, placedWindow.end);
     placedWindowRef.current = placed.start === current.start && placed.end === current.end ? null : placed;
   }, [panEnabled, baseSeriesData, baseTimes, extraRightSlots, slotMs, initialVisibleCount, panSetViewport]);
 
   const lastReportedViewportRef = useRef('');
   useEffect(() => {
-    if (!onViewportChange || !panRange || baseTimes.length === 0) return;
+    if (!panRange || baseTimes.length === 0) return;
     const placed = placedWindowRef.current;
     if (placed) {
       if (placed.start !== panRange.viewportStart || placed.end !== panRange.viewportEnd) return;
       placedWindowRef.current = null;
     }
+    if (!onViewportChange) return;
     const viewport: ChartViewport = {
       startTime: panRange.startTime,
       endTime: panRange.endTime,
@@ -2160,6 +2159,8 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
 
   const activeRangeRef = useRef(activeRange);
   activeRangeRef.current = activeRange;
+  const baseTimesRef = useRef(baseTimes);
+  baseTimesRef.current = baseTimes;
   const panEnabledRef = useRef(panEnabled);
   panEnabledRef.current = panEnabled;
   // The host's range, not the one on screen: a first range is reported settled before the chart has
@@ -2169,7 +2170,10 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
 
   const getVisibleTimeRange = useCallback((): VisibleRange | null => {
     const range = activeRangeRef.current;
-    return range ? { startTime: range.startTime, endTime: range.endTime } : null;
+    if (range) return { startTime: range.startTime, endTime: range.endTime };
+    // Without pan/zoom or a host range the chart draws every bar.
+    const times = baseTimesRef.current;
+    return times.length ? { startTime: times[0], endTime: times[times.length - 1] } : null;
   }, []);
 
   const setVisibleTimeRange = useCallback((range: VisibleRange) => {
