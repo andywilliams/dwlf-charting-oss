@@ -1,5 +1,7 @@
 import { interpolateRange, type VisibleRange } from './visibleRange';
 
+type Interpolate = (a: VisibleRange, b: VisibleRange, k: number) => VisibleRange;
+
 /** What a range tween needs from its surroundings, injected so it runs (and is tested) without a browser. */
 export interface RangeTweenEnv {
   requestFrame: (step: (now: number) => void) => number;
@@ -9,8 +11,11 @@ export interface RangeTweenEnv {
 }
 
 export interface RangeTween {
-  /** Head for `goal`. The first goal, a zero duration, reduced motion or no change jump at once. */
-  moveTo(goal: VisibleRange | undefined, durationMs: number): void;
+  /**
+   * Head for `goal`, eased by `interpolate` (default: both edges evenly). The first goal, a zero
+   * duration, reduced motion or no change jump at once.
+   */
+  moveTo(goal: VisibleRange | undefined, durationMs: number, interpolate?: Interpolate): void;
   /** Stop any move in flight; it never settles. */
   stop(): void;
 }
@@ -43,7 +48,7 @@ export function createRangeTween(
 
   return {
     stop,
-    moveTo(goal, durationMs) {
+    moveTo(goal, durationMs, interpolate = interpolateRange) {
       const moving = frame !== null;
       stop();
       if (!goal) {
@@ -62,7 +67,8 @@ export function createRangeTween(
       const t0 = env.now();
       const step = (now: number) => {
         const k = Math.min(1, (now - t0) / durationMs);
-        show(interpolateRange(from, goal, k));
+        // The last frame shows the goal itself: an interpolation need not land on it exactly.
+        show(k < 1 ? interpolate(from, goal, k) : goal);
         if (k < 1) {
           frame = env.requestFrame(step);
         } else {

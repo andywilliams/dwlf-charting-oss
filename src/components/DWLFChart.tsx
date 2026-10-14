@@ -28,7 +28,7 @@ import type {
 import type { ChartAnimationState } from '../hooks/useChartAnimations';
 import AnnotationLayer from './overlays/AnnotationLayer';
 import { estimateBarDurationMs } from '../utils/barDuration';
-import { viewportForRange, type VisibleRange } from '../utils/visibleRange';
+import { viewportForRange, type RangeInterpolation, type VisibleRange } from '../utils/visibleRange';
 import { nextPanWindow, type ViewportWindow } from '../utils/viewportCarry';
 
 // Layout timing in the browser; on the server, where layout effects never run, a plain effect, so
@@ -1093,6 +1093,12 @@ export interface DWLFChartProps {
   /** Called once the chart shows `visibleRange` (after the ease, or at once when it jumps). */
   onVisibleRangeSettled?: (range: VisibleRange) => void;
   /**
+   * How a change of `visibleRange` eases: `linear` (default) moves both edges evenly; `zoom` scales
+   * the span by an even factor each moment, so a large zoom (weekly to hourly is ~170x) reads as
+   * one motion instead of happening at the very end.
+   */
+  visibleRangeInterpolation?: RangeInterpolation;
+  /**
    * Called when the reader's pan/zoom window changes, including when bars are added under it. Only
    * while pan/zoom is on (`enablePanZoom`, no `visibleRange`). `startIndex` is the first bar shown, so
    * a small value means the reader is near the oldest loaded bar; `barCount` is the bars loaded.
@@ -1167,6 +1173,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
     visibleRange,
     visibleRangeTransitionMs = 700,
     onVisibleRangeSettled,
+    visibleRangeInterpolation = 'linear',
     onViewportChange,
   },
   ref,
@@ -1214,6 +1221,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
     baseSeriesData.length > 0 ? visibleRange : undefined,
     visibleRangeTransitionMs,
     onVisibleRangeSettled,
+    visibleRangeInterpolation,
   );
   const fixedRangeEnabled = shownRange !== undefined && baseSeriesData.length > 0;
   const panEnabled = enablePanZoom && !fixedRangeEnabled && baseSeriesData.length > 0;

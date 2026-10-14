@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createRangeTween } from '../rangeTween';
-import type { VisibleRange } from '../visibleRange';
+import { interpolateRangeZoom, type VisibleRange } from '../visibleRange';
 
 /** A hand-cranked frame clock: `tick(ms)` advances time and runs the frame waiting, if any. */
 function harness(reduced = false) {
@@ -116,5 +116,34 @@ describe('createRangeTween', () => {
     h.tween.stop();
     expect(h.running()).toBe(false);
     expect(h.settled).toEqual([A]);
+  });
+
+  it('eases with the interpolation the move asks for', () => {
+    const h = harness();
+    const wide = { startTime: 0, endTime: 10_000 };
+    const narrow = { startTime: 9_900, endTime: 10_000 };
+    h.tween.moveTo(wide, 700);
+    h.tween.moveTo(narrow, 700, interpolateRangeZoom);
+    h.tick(0);
+    h.tick(350);
+    const mid = h.frames.at(-1)!;
+    expect(mid.endTime).toBeCloseTo(10_000, 6);
+    expect(mid.endTime - mid.startTime).toBeCloseTo(1_000, 6);
+    h.tick(350);
+    expect(h.settled.at(-1)).toEqual(narrow);
+  });
+
+  it('lands exactly on the goal, settled once, whatever the interpolation computes', () => {
+    const h = harness();
+    const off = (_a: VisibleRange, b: VisibleRange, k: number) => ({ startTime: b.startTime + 0.25 * k, endTime: b.endTime });
+    h.tween.moveTo(A, 700);
+    h.tween.moveTo(C, 700, off);
+    h.tick(0);
+    h.tick(700);
+    expect(h.frames.at(-1)).toEqual(C);
+    expect(h.settled).toEqual([A, C]);
+    h.tween.moveTo(C, 700, off);
+    expect(h.running()).toBe(false);
+    expect(h.settled).toEqual([A, C]);
   });
 });
