@@ -132,4 +132,18 @@ describe('createRangeTween', () => {
     h.tick(350);
     expect(h.settled.at(-1)).toEqual(narrow);
   });
+
+  it('lands exactly on the goal, settled once, whatever the interpolation computes', () => {
+    const h = harness();
+    const off = (_a: VisibleRange, b: VisibleRange, k: number) => ({ startTime: b.startTime + 0.25 * k, endTime: b.endTime });
+    h.tween.moveTo(A, 700);
+    h.tween.moveTo(C, 700, off);
+    h.tick(0);
+    h.tick(700);
+    expect(h.frames.at(-1)).toEqual(C);
+    expect(h.settled).toEqual([A, C]);
+    h.tween.moveTo(C, 700, off);
+    expect(h.running()).toBe(false);
+    expect(h.settled).toEqual([A, C]);
+  });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { easeInOutCubic, interpolateRange, interpolateRangeZoom, viewportForRange } from '../visibleRange';
+import { easeInOutCubic, interpolateRange, interpolateRangeZoom, interpolatorFor, viewportForRange } from '../visibleRange';
 
 const WEEK = 7 * 86_400_000;
 const t0 = Date.UTC(2026, 0, 5);
@@ -66,9 +66,7 @@ describe('interpolateRangeZoom', () => {
 
   it('starts and ends on its goals', () => {
     expect(interpolateRangeZoom(weekly, hourly, 0)).toEqual(weekly);
-    const last = interpolateRangeZoom(weekly, hourly, 1);
-    expect(last.startTime).toBeCloseTo(hourly.startTime, -1);
-    expect(last.endTime).toBeCloseTo(hourly.endTime, -1);
+    expect(interpolateRangeZoom(weekly, hourly, 1)).toEqual(hourly);
   });
 
   it('scales the span geometrically, so halfway through the ease it is the geometric mean', () => {
@@ -85,5 +83,14 @@ describe('interpolateRangeZoom', () => {
   it('pans like interpolateRange when the spans match', () => {
     const later = { startTime: weekly.startTime + 10 * WEEK, endTime: weekly.endTime + 10 * WEEK };
     expect(interpolateRangeZoom(weekly, later, 0.3)).toEqual(interpolateRange(weekly, later, 0.3));
+  });
+});
+
+describe('interpolatorFor', () => {
+  it('names the zoom ease, and falls back to linear', () => {
+    expect(interpolatorFor('zoom')).toBe(interpolateRangeZoom);
+    expect(interpolatorFor('linear')).toBe(interpolateRange);
+    expect(interpolatorFor(undefined)).toBe(interpolateRange);
+    expect(interpolatorFor('bogus' as never)).toBe(interpolateRange);
   });
 });

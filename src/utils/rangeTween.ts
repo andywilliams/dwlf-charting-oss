@@ -67,7 +67,8 @@ export function createRangeTween(
       const t0 = env.now();
       const step = (now: number) => {
         const k = Math.min(1, (now - t0) / durationMs);
-        show(interpolate(from, goal, k));
+        // The last frame shows the goal itself: an interpolation need not land on it exactly.
+        show(k < 1 ? interpolate(from, goal, k) : goal);
         if (k < 1) {
           frame = env.requestFrame(step);
         } else {

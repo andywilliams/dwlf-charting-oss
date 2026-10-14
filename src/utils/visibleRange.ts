@@ -68,14 +68,19 @@ export function interpolateRangeZoom(a: VisibleRange, b: VisibleRange, k: number
   if (!(spanA > 0) || !(spanB > 0) || Math.abs(Math.log(spanB / spanA)) < 1e-3) {
     return interpolateRange(a, b, k);
   }
-  const e = easeInOutCubic(Math.max(0, Math.min(1, k)));
+  if (k >= 1) return b;
+  const e = easeInOutCubic(Math.max(0, k));
   const fixed = (b.startTime * spanA - a.startTime * spanB) / (spanA - spanB);
   const span = spanA * Math.pow(spanB / spanA, e);
   const startTime = fixed - ((fixed - a.startTime) / spanA) * span;
   return { startTime, endTime: startTime + span };
 }
 
-export const rangeInterpolators: Record<RangeInterpolation, typeof interpolateRange> = {
+const rangeInterpolators: Record<RangeInterpolation, typeof interpolateRange> = {
   linear: interpolateRange,
   zoom: interpolateRangeZoom,
 };
+
+/** The interpolator for a mode; anything unknown is `linear`. */
+export const interpolatorFor = (mode: RangeInterpolation | undefined): typeof interpolateRange =>
+  (mode && rangeInterpolators[mode]) || interpolateRange;
