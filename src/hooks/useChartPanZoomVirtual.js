@@ -46,11 +46,14 @@ export default function useChartPanZoomVirtual(
 
   const DATA_MAX = data.length + extraSlots;
 
-  // Initialise viewport anchored to the most recent candles
-  const [viewportStart, setViewportStart] = useState(() =>
-    Math.max(0, DATA_MAX - initialVisibleCount)
-  );
-  const [viewportEnd, setViewportEnd] = useState(DATA_MAX);
+  // One state for the window, so a clamp can read the latest one (see the clamp effect).
+  // Initialised anchored to the most recent candles.
+  const [viewport, setViewportState] = useState(() => ({
+    start: Math.max(0, DATA_MAX - initialVisibleCount),
+    end: DATA_MAX
+  }));
+  const viewportStart = viewport.start;
+  const viewportEnd = viewport.end;
 
   const chartElementRef = useRef();
   const [isPanning, setIsPanning] = useState(false);
@@ -89,13 +92,17 @@ export default function useChartPanZoomVirtual(
     [DATA_MAX]
   );
 
+  // Keeps the window inside the bars when they shrink (clampWindow changes with the bar count; every
+  // pan and zoom clamps itself). A functional update, so a window placed earlier in the same commit
+  // (the chart's layout effect) is clamped rather than overwritten.
   useEffect(() => {
-    const count = viewportEnd - viewportStart;
-    if (count <= 0) return;
-    const { start, end } = clampWindow(viewportStart, count);
-    if (start !== viewportStart) setViewportStart(start);
-    if (end !== viewportEnd) setViewportEnd(end);
-  }, [clampWindow, viewportStart, viewportEnd]);
+    setViewportState(current => {
+      const count = current.end - current.start;
+      if (count <= 0) return current;
+      const next = clampWindow(current.start, count);
+      return next.start === current.start && next.end === current.end ? current : next;
+    });
+  }, [clampWindow]);
 
   /* ----------------------------- panning ----------------------------- */
   const handleMouseDown = useCallback(e => {
@@ -117,8 +124,7 @@ export default function useChartPanZoomVirtual(
       const barsDelta = Math.round(deltaX / (pxPerBar * 1.5));
       if (barsDelta !== 0) {
         const { start, end } = clampWindow(viewportStart - barsDelta, visibleCount);
-        setViewportStart(start);
-        setViewportEnd(end);
+        setViewportState({ start, end });
         setLastPanX(e.clientX);
       }
     },
@@ -141,8 +147,7 @@ export default function useChartPanZoomVirtual(
         const barsDelta = Math.round(e.deltaX / (pxPerBar * 1.5));
         if (barsDelta) {
           const { start, end } = clampWindow(viewportStart - barsDelta, visibleCount);
-          setViewportStart(start);
-          setViewportEnd(end);
+          setViewportState({ start, end });
         }
         return;
       }
@@ -161,8 +166,7 @@ export default function useChartPanZoomVirtual(
       const centerIndex = viewportStart + ratioX * visibleCount;
       const newStart = Math.round(centerIndex - ratioX * newCount);
       const { start, end } = clampWindow(newStart, newCount);
-      setViewportStart(start);
-      setViewportEnd(end);
+      setViewportState({ start, end });
     },
     [visibleCount, viewportStart, clampWindow, DATA_MAX]
   );
@@ -186,34 +190,39 @@ export default function useChartPanZoomVirtual(
     const newCount = Math.max(5, Math.round((viewportEnd - viewportStart) * 0.8));
     const center = (viewportStart + viewportEnd) / 2;
     const { start, end } = clampWindow(Math.round(center - newCount / 2), newCount);
-    setViewportStart(start);
-    setViewportEnd(end);
+    setViewportState({ start, end });
   }, [viewportStart, viewportEnd, clampWindow]);
 
   const zoomOut = useCallback(() => {
     const newCount = Math.min(DATA_MAX, Math.round((viewportEnd - viewportStart) * 1.25));
     const center = (viewportStart + viewportEnd) / 2;
     const { start, end } = clampWindow(Math.round(center - newCount / 2), newCount);
-    setViewportStart(start);
-    setViewportEnd(end);
+    setViewportState({ start, end });
   }, [viewportStart, viewportEnd, clampWindow, DATA_MAX]);
 
   const resetView = useCallback(() => {
     const { start, end } = clampWindow(DATA_MAX - initialVisibleCount, initialVisibleCount);
-    setViewportStart(start);
-    setViewportEnd(end);
+    setViewportState({ start, end });
   }, [initialVisibleCount, clampWindow, DATA_MAX]);
+
+  // Sets the window directly, clamped like any pan; returns the window it settled on.
+  const setViewport = useCallback(
+    (startIndex, endIndex) => {
+      const { start, end } = clampWindow(startIndex, endIndex - startIndex);
+      setViewportState({ start, end });
+      return { start, end };
+    },
+    [clampWindow]
+  );
 
   const panToStart = useCallback(() => {
     const { start, end } = clampWindow(0, visibleCount);
-    setViewportStart(start);
-    setViewportEnd(end);
+    setViewportState({ start, end });
   }, [clampWindow, visibleCount]);
 
   const panToEnd = useCallback(() => {
     const { start, end } = clampWindow(DATA_MAX - visibleCount, visibleCount);
-    setViewportStart(start);
-    setViewportEnd(end);
+    setViewportState({ start, end });
   }, [clampWindow, visibleCount, DATA_MAX]);
 
   /* ------------------------------- API -------------------------------- */
@@ -234,6 +243,7 @@ export default function useChartPanZoomVirtual(
     zoomIn,
     zoomOut,
     resetView,
+    setViewport,
     panToStart,
     panToEnd,
 
