@@ -15,7 +15,7 @@ describe('continuesSeries', () => {
     expect(continuesSeries(prev, [...series(100, 199), { ...bar(199), c: 999 }])).toBe(true);
   });
 
-  it('is false for a different series on the same dates, or one that no longer holds the first bar', () => {
+  it('is false for a different series on the same dates, or with no bars on either side', () => {
     const prev = series(100, 200);
     expect(continuesSeries(prev, series(100, 200, 50))).toBe(false);
     expect(continuesSeries([], series(0, 10))).toBe(false);

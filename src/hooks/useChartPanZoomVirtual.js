@@ -92,8 +92,9 @@ export default function useChartPanZoomVirtual(
     [DATA_MAX]
   );
 
-  // Keeps the window inside the bars when they shrink. A functional update, so a window placed
-  // earlier in the same commit (the chart's layout effect) is clamped rather than overwritten.
+  // Keeps the window inside the bars when they shrink (clampWindow changes with the bar count; every
+  // pan and zoom clamps itself). A functional update, so a window placed earlier in the same commit
+  // (the chart's layout effect) is clamped rather than overwritten.
   useEffect(() => {
     setViewportState(current => {
       const count = current.end - current.start;
@@ -101,7 +102,7 @@ export default function useChartPanZoomVirtual(
       const next = clampWindow(current.start, count);
       return next.start === current.start && next.end === current.end ? current : next;
     });
-  }, [clampWindow, viewportStart, viewportEnd]);
+  }, [clampWindow]);
 
   /* ----------------------------- panning ----------------------------- */
   const handleMouseDown = useCallback(e => {
