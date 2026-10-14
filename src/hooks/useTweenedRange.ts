@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createRangeTween, type RangeTween, type RangeTweenEnv } from '../utils/rangeTween';
-import type { VisibleRange } from '../utils/visibleRange';
+import { rangeInterpolators, type RangeInterpolation, type VisibleRange } from '../utils/visibleRange';
 
 const hasFrames = () => typeof requestAnimationFrame === 'function' && typeof cancelAnimationFrame === 'function';
 
@@ -24,6 +24,7 @@ export default function useTweenedRange(
   target: VisibleRange | undefined,
   durationMs: number,
   onSettled?: (range: VisibleRange) => void,
+  interpolation: RangeInterpolation = 'linear',
 ): VisibleRange | undefined {
   const [shown, setShown] = useState<VisibleRange | undefined>(target);
   const settledRef = useRef(onSettled);
@@ -37,7 +38,8 @@ export default function useTweenedRange(
 
   useEffect(() => {
     const goal = startTime === undefined || endTime === undefined ? undefined : { startTime, endTime };
-    tweenRef.current?.moveTo(goal, durationMs);
+    tweenRef.current?.moveTo(goal, durationMs, rangeInterpolators[interpolation] ?? rangeInterpolators.linear);
+    // The interpolation is read when a move starts; changing it alone starts no move.
   }, [startTime, endTime, durationMs]);
 
   useEffect(() => () => tweenRef.current?.stop(), []);

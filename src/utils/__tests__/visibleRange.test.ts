@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { easeInOutCubic, interpolateRange, viewportForRange } from '../visibleRange';
+import { easeInOutCubic, interpolateRange, interpolateRangeZoom, viewportForRange } from '../visibleRange';
 
 const WEEK = 7 * 86_400_000;
 const t0 = Date.UTC(2026, 0, 5);
@@ -54,5 +54,36 @@ describe('easeInOutCubic', () => {
     expect(easeInOutCubic(0.1)).toBeLessThan(0.1);
     expect(easeInOutCubic(0.9)).toBeGreaterThan(0.9);
     expect(easeInOutCubic(0.2) + easeInOutCubic(0.8)).toBeCloseTo(1);
+  });
+});
+
+describe('interpolateRangeZoom', () => {
+  const HOUR = 3_600_000;
+  const end = Date.UTC(2026, 9, 14);
+  const weekly = { startTime: end - 320 * WEEK, endTime: end };
+  const hourly = { startTime: end - 260 * HOUR, endTime: end };
+  const span = (r: { startTime: number; endTime: number }) => r.endTime - r.startTime;
+
+  it('starts and ends on its goals', () => {
+    expect(interpolateRangeZoom(weekly, hourly, 0)).toEqual(weekly);
+    const last = interpolateRangeZoom(weekly, hourly, 1);
+    expect(last.startTime).toBeCloseTo(hourly.startTime, -1);
+    expect(last.endTime).toBeCloseTo(hourly.endTime, -1);
+  });
+
+  it('scales the span geometrically, so halfway through the ease it is the geometric mean', () => {
+    const mid = interpolateRangeZoom(weekly, hourly, 0.5);
+    expect(span(mid)).toBeCloseTo(Math.sqrt(span(weekly) * span(hourly)), -1);
+    // A linear ease would still show about half the weekly span here.
+    expect(span(interpolateRange(weekly, hourly, 0.5))).toBeGreaterThan(span(weekly) / 2 - WEEK);
+  });
+
+  it('keeps the shared time in place: two ranges ending together zoom about their end', () => {
+    [0.2, 0.5, 0.8].forEach(k => expect(interpolateRangeZoom(weekly, hourly, k).endTime).toBeCloseTo(end, -1));
+  });
+
+  it('pans like interpolateRange when the spans match', () => {
+    const later = { startTime: weekly.startTime + 10 * WEEK, endTime: weekly.endTime + 10 * WEEK };
+    expect(interpolateRangeZoom(weekly, later, 0.3)).toEqual(interpolateRange(weekly, later, 0.3));
   });
 });

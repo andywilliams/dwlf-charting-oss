@@ -52,3 +52,30 @@ export function interpolateRange(a: VisibleRange, b: VisibleRange, k: number): V
   const e = easeInOutCubic(Math.max(0, Math.min(1, k)));
   return { startTime: a.startTime + (b.startTime - a.startTime) * e, endTime: a.endTime + (b.endTime - a.endTime) * e };
 }
+
+/** How a range eases between two goals: `linear` moves both edges evenly; `zoom` scales the span geometrically. */
+export type RangeInterpolation = 'linear' | 'zoom';
+
+/**
+ * The range `k` of the way from `a` to `b` as a camera zoom: the span changes by the same factor
+ * each moment (so a 200x zoom reads as one even motion rather than all at the end), about the one
+ * time that sits at the same place across the chart in both ranges. Spans that barely differ pan
+ * as `interpolateRange` does.
+ */
+export function interpolateRangeZoom(a: VisibleRange, b: VisibleRange, k: number): VisibleRange {
+  const spanA = a.endTime - a.startTime;
+  const spanB = b.endTime - b.startTime;
+  if (!(spanA > 0) || !(spanB > 0) || Math.abs(Math.log(spanB / spanA)) < 1e-3) {
+    return interpolateRange(a, b, k);
+  }
+  const e = easeInOutCubic(Math.max(0, Math.min(1, k)));
+  const fixed = (b.startTime * spanA - a.startTime * spanB) / (spanA - spanB);
+  const span = spanA * Math.pow(spanB / spanA, e);
+  const startTime = fixed - ((fixed - a.startTime) / spanA) * span;
+  return { startTime, endTime: startTime + span };
+}
+
+export const rangeInterpolators: Record<RangeInterpolation, typeof interpolateRange> = {
+  linear: interpolateRange,
+  zoom: interpolateRangeZoom,
+};
