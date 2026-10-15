@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import { barsForPixels, wheelPanStep } from '../utils/panStep';
 
 /**
  * Hook for handling chart panning and zooming
@@ -74,7 +75,7 @@ export default function useChartPanZoom(data, initialVisibleCount = 50) {
 
     // If there are still pixels left after slack (or we weren't at the edge), convert to data movement
     if (remainingDeltaX !== 0) {
-      const dataPointsDelta = Math.round(remainingDeltaX / (pixelsPerDataPoint * 1.5));
+      const dataPointsDelta = barsForPixels(remainingDeltaX, pixelsPerDataPoint);
 
       if (dataPointsDelta !== 0) {
         const newStart = Math.max(0, viewportStart - dataPointsDelta);
@@ -99,6 +100,8 @@ export default function useChartPanZoom(data, initialVisibleCount = 50) {
     setIsPanning(false);
   }, []);
   
+  const wheelCarryPxRef = useRef(0);
+
   // Zoom handler - direct zoom without inertia
   const handleWheel = useCallback((event) => {
     event.preventDefault();
@@ -115,14 +118,18 @@ export default function useChartPanZoom(data, initialVisibleCount = 50) {
       // -----------------------------
       // Horizontal track-pad scroll → Pan
       // -----------------------------
-      const pixelsPerDataPoint = chartWidth / visibleCount;
+      const step = wheelPanStep({
+        start: viewportStart,
+        carryPx: wheelCarryPxRef.current,
+        deltaX: event.deltaX,
+        deltaMode: event.deltaMode,
+        pxPerBar: chartWidth / visibleCount,
+        pageWidthPx: chartWidth,
+      });
+      wheelCarryPxRef.current = step.carryPx;
 
-      // Use a sensitivity factor so small accidental scrolls do not shift the chart too much.
-      // Re-use the same 1.5 factor that drag-panning uses for consistency.
-      const dataPointsDelta = Math.round(event.deltaX / (pixelsPerDataPoint * 1.5));
-
-      if (dataPointsDelta !== 0) {
-        const newStart = Math.max(0, viewportStart - dataPointsDelta);
+      if (step.start !== viewportStart) {
+        const newStart = Math.max(0, step.start);
         const newEnd = Math.min(data.length, newStart + visibleCount);
         const adjustedStart = Math.max(0, newEnd - visibleCount);
         setViewportStart(adjustedStart);

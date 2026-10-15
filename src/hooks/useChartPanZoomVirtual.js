@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { estimateBarDurationMs, DAY_MS } from '../utils/barDuration';
+import { barsForPixels, wheelPanStep } from '../utils/panStep';
 
 /**
  * Pan/Zoom hook that keeps a fixed number of blank "virtual" slots after the
@@ -121,7 +122,7 @@ export default function useChartPanZoomVirtual(
       const margin = { left: 10, right: 20 }; // matches DWLFChart margin
       const chartWidth = rect.width - margin.left - margin.right;
       const pxPerBar = chartWidth / visibleCount;
-      const barsDelta = Math.round(deltaX / (pxPerBar * 1.5));
+      const barsDelta = barsForPixels(deltaX, pxPerBar);
       if (barsDelta !== 0) {
         const { start, end } = clampWindow(viewportStart - barsDelta, visibleCount);
         setViewportState({ start, end });
@@ -134,6 +135,7 @@ export default function useChartPanZoomVirtual(
   const handleMouseUp = useCallback(() => setIsPanning(false), []);
 
   /* ---------------------------- wheel pan ---------------------------- */
+  const wheelCarryPxRef = useRef(0);
   const handleWheel = useCallback(
     e => {
       e.preventDefault();
@@ -143,10 +145,17 @@ export default function useChartPanZoomVirtual(
 
       const isHorizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY);
       if (isHorizontal) {
-        const pxPerBar = chartWidth / visibleCount;
-        const barsDelta = Math.round(e.deltaX / (pxPerBar * 1.5));
-        if (barsDelta) {
-          const { start, end } = clampWindow(viewportStart - barsDelta, visibleCount);
+        const step = wheelPanStep({
+          start: viewportStart,
+          carryPx: wheelCarryPxRef.current,
+          deltaX: e.deltaX,
+          deltaMode: e.deltaMode,
+          pxPerBar: chartWidth / visibleCount,
+          pageWidthPx: chartWidth,
+        });
+        wheelCarryPxRef.current = step.carryPx;
+        if (step.start !== viewportStart) {
+          const { start, end } = clampWindow(step.start, visibleCount);
           setViewportState({ start, end });
         }
         return;

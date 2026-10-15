@@ -50,3 +50,4 @@ describe('virtualSlotDates', () => {
     expect(slots.map((s) => s.date)).toEqual(['2026-10-05', '2026-10-12']);
   });
 });
+
