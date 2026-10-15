@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { wheelPanBars } from './useChartPanZoomVirtual.js';
+import { barsForPixels } from '../utils/panStep';
 
 /**
  * Hook for handling chart panning and zooming
@@ -75,7 +75,7 @@ export default function useChartPanZoom(data, initialVisibleCount = 50) {
 
     // If there are still pixels left after slack (or we weren't at the edge), convert to data movement
     if (remainingDeltaX !== 0) {
-      const dataPointsDelta = Math.round(remainingDeltaX / (pixelsPerDataPoint * 1.5));
+      const dataPointsDelta = barsForPixels(remainingDeltaX, pixelsPerDataPoint);
 
       if (dataPointsDelta !== 0) {
         const newStart = Math.max(0, viewportStart - dataPointsDelta);
@@ -118,7 +118,8 @@ export default function useChartPanZoom(data, initialVisibleCount = 50) {
       // -----------------------------
       const pixelsPerDataPoint = chartWidth / visibleCount;
 
-      const dataPointsDelta = wheelPanBars(event.deltaX, pixelsPerDataPoint);
+      // A wheel's deltaX is a scroll offset, the opposite sign to drag travel: positive is newer bars.
+      const dataPointsDelta = barsForPixels(event.deltaX, pixelsPerDataPoint);
 
       if (dataPointsDelta !== 0) {
         const newStart = Math.max(0, viewportStart + dataPointsDelta);

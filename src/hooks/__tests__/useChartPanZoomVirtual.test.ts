@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { slotMsForTimeframe, virtualSlotDates, wheelPanBars } from '../useChartPanZoomVirtual';
+import { slotMsForTimeframe, virtualSlotDates } from '../useChartPanZoomVirtual';
 
 const DAY = 86_400_000;
 
@@ -51,15 +51,3 @@ describe('virtualSlotDates', () => {
   });
 });
 
-// DWLF-436: a swipe moves the candles with the fingers. Swiping right (deltaX < 0, as a page
-// scrolls left) pushes the candles right and shows older bars, which a drag right also does.
-describe('wheelPanBars', () => {
-  it('a swipe right moves the window toward older bars, a swipe left toward newer', () => {
-    expect(wheelPanBars(-30, 10)).toBe(-2);
-    expect(wheelPanBars(30, 10)).toBe(2);
-  });
-
-  it('a nudge smaller than a bar and a half moves nothing', () => {
-    expect(wheelPanBars(7, 10)).toBe(0);
-  });
-});
