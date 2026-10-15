@@ -1,6 +1,6 @@
 /**
  * Pointer or swipe travel per bar moved, in bar widths. Above one so that a small accidental move
- * does not shift the chart; drag and wheel share it so the two gestures pan at the same speed.
+ * does not shift the chart; drag and wheel share the one factor.
  */
 export const PAN_TRAVEL_PER_BAR = 1.5;
 
