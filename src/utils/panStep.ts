@@ -34,6 +34,8 @@ export function wheelPanStep({ start, carryPx, deltaX, deltaMode, pxPerBar, page
   start: number;
   carryPx: number;
 } {
+  // No plot width or no bars visible: nothing to step by, and nothing worth carrying.
+  if (!(pxPerBar > 0) || !Number.isFinite(pxPerBar)) return { start, carryPx: 0 };
   const px = deltaX * (deltaMode === 1 ? LINE_PX : deltaMode === 2 ? pageWidthPx : 1);
   const total = carryPx + px;
   const bars = barsForPixels(total, pxPerBar);

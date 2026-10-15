@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { barsForPixels } from '../utils/panStep';
+import { barsForPixels, wheelPanStep } from '../utils/panStep';
 
 /**
  * Hook for handling chart panning and zooming
@@ -100,6 +100,8 @@ export default function useChartPanZoom(data, initialVisibleCount = 50) {
     setIsPanning(false);
   }, []);
   
+  const wheelCarryPxRef = useRef(0);
+
   // Zoom handler - direct zoom without inertia
   const handleWheel = useCallback((event) => {
     event.preventDefault();
@@ -116,13 +118,18 @@ export default function useChartPanZoom(data, initialVisibleCount = 50) {
       // -----------------------------
       // Horizontal track-pad scroll → Pan
       // -----------------------------
-      const pixelsPerDataPoint = chartWidth / visibleCount;
+      const step = wheelPanStep({
+        start: viewportStart,
+        carryPx: wheelCarryPxRef.current,
+        deltaX: event.deltaX,
+        deltaMode: event.deltaMode,
+        pxPerBar: chartWidth / visibleCount,
+        pageWidthPx: chartWidth,
+      });
+      wheelCarryPxRef.current = step.carryPx;
 
-      // A wheel's deltaX is a scroll offset, the opposite sign to drag travel: positive is newer bars.
-      const dataPointsDelta = barsForPixels(event.deltaX, pixelsPerDataPoint);
-
-      if (dataPointsDelta !== 0) {
-        const newStart = Math.max(0, viewportStart + dataPointsDelta);
+      if (step.start !== viewportStart) {
+        const newStart = Math.max(0, step.start);
         const newEnd = Math.min(data.length, newStart + visibleCount);
         const adjustedStart = Math.max(0, newEnd - visibleCount);
         setViewportStart(adjustedStart);

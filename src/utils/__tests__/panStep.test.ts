@@ -31,3 +31,11 @@ describe('barsForPixels', () => {
     expect(Object.is(barsForPixels(-7, 10), 0)).toBe(true);
   });
 });
+
+describe('wheelPanStep with nothing to step by', () => {
+  it('stays put and carries nothing when no bars are visible or the plot has no width', () => {
+    for (const pxPerBar of [Infinity, 0, -5, NaN]) {
+      expect(swipe(-30, { pxPerBar, carryPx: 4 })).toEqual({ start: 100, carryPx: 0 });
+    }
+  });
+});
