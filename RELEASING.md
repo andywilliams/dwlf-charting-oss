@@ -3,7 +3,9 @@
 Every push to `main` runs `.github/workflows/release.yml`, which runs
 `semantic-release`. Commits typed `fix:`, `feat:` or carrying a breaking-change
 footer produce a version; anything else produces no release. There is no manual
-publish step and no release branch.
+publish step and no release branch. The release job runs only after the `test` job in the same
+workflow passes `npm test`; that job has no `id-token: write`, so the suite's dependency code never
+runs where the publish credential can be minted. CI runs the same suite on every pull request.
 
 ## The publish credential is not in this repository
 

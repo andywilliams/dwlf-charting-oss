@@ -1,9 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { DWLFChart, __computeSeriesHoverForTests, crosshairTimeLabelBox, placeXTickLabels, placeYTickLabels } from '../../components';
 import type { ChartSpec, PaneSpec, SeriesSpec } from '../types';
 import { collectSpecTimes, findClosestTime, resolvePaneDomain } from '../scales';
+
+// Server rendering measures no container, so give the chart a real plot to draw into: at zero
+// width the candles land off-plot and guides are skipped, and the snapshot shows neither.
+vi.mock('../../hooks/useContainerSize', () => ({
+  default: () => [{ current: null }, { width: 800, height: 400 }],
+}));
 
 type TestSeries = SeriesSpec;
 
@@ -227,7 +233,8 @@ describe('pane scale behaviour', () => {
       yScale: { mode: 'auto' },
       series: [priceSeries],
     };
-    expect(resolvePaneDomain(autoPane)).toEqual([93.64, 113.36]);
+    // OHLC lows/highs 95..112, padded by 15% of the range either side.
+    expect(resolvePaneDomain(autoPane)).toEqual([92.45, 114.55]);
   });
 
   it('honours fixed scale bounds', () => {
@@ -256,7 +263,7 @@ describe('pane scale behaviour', () => {
       series: [priceSeries, markerSeries],
     };
 
-    expect(resolvePaneDomain(pane)).toEqual([93.64, 113.36]);
+    expect(resolvePaneDomain(pane)).toEqual([92.45, 114.55]);
   });
 
   it('includes overlays in auto-scale when explicitly enabled', () => {
@@ -275,7 +282,7 @@ describe('pane scale behaviour', () => {
       series: [priceSeries, markerSeries],
     };
 
-    expect(resolvePaneDomain(pane, { includeOverlaysInAutoScale: true })).toEqual([86.6, 208.4]);
+    expect(resolvePaneDomain(pane, { includeOverlaysInAutoScale: true })).toEqual([79.25, 215.75]);
   });
 
   it('auto-scales non-OHLC panes even when overlays are excluded', () => {
