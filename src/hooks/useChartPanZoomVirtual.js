@@ -37,6 +37,15 @@ export function virtualSlotDates({ lastRealDate, baseOffset, count, timeframe })
   });
 }
 
+/**
+ * Bars a horizontal wheel or trackpad swipe moves the window by: positive toward newer bars.
+ * A wheel's deltaX is a scroll offset (positive scrolls right, the opposite sign to a drag's
+ * clientX change), so a swipe moves the candles with the fingers, as a drag does.
+ */
+export function wheelPanBars(deltaX, pxPerBar) {
+  return Math.round(deltaX / (pxPerBar * 1.5));
+}
+
 export default function useChartPanZoomVirtual(
   data,
   initialVisibleCount = 50,
@@ -144,9 +153,9 @@ export default function useChartPanZoomVirtual(
       const isHorizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY);
       if (isHorizontal) {
         const pxPerBar = chartWidth / visibleCount;
-        const barsDelta = Math.round(e.deltaX / (pxPerBar * 1.5));
+        const barsDelta = wheelPanBars(e.deltaX, pxPerBar);
         if (barsDelta) {
-          const { start, end } = clampWindow(viewportStart - barsDelta, visibleCount);
+          const { start, end } = clampWindow(viewportStart + barsDelta, visibleCount);
           setViewportState({ start, end });
         }
         return;

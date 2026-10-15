@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import { wheelPanBars } from './useChartPanZoomVirtual.js';
 
 /**
  * Hook for handling chart panning and zooming
@@ -117,12 +118,10 @@ export default function useChartPanZoom(data, initialVisibleCount = 50) {
       // -----------------------------
       const pixelsPerDataPoint = chartWidth / visibleCount;
 
-      // Use a sensitivity factor so small accidental scrolls do not shift the chart too much.
-      // Re-use the same 1.5 factor that drag-panning uses for consistency.
-      const dataPointsDelta = Math.round(event.deltaX / (pixelsPerDataPoint * 1.5));
+      const dataPointsDelta = wheelPanBars(event.deltaX, pixelsPerDataPoint);
 
       if (dataPointsDelta !== 0) {
-        const newStart = Math.max(0, viewportStart - dataPointsDelta);
+        const newStart = Math.max(0, viewportStart + dataPointsDelta);
         const newEnd = Math.min(data.length, newStart + visibleCount);
         const adjustedStart = Math.max(0, newEnd - visibleCount);
         setViewportStart(adjustedStart);
