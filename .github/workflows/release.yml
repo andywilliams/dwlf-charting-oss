@@ -6,7 +6,31 @@ on:
   workflow_dispatch:
 
 jobs:
+  # The suite must pass before anything publishes. Its own job, without id-token: write: running
+  # the tests runs dependency code (vitest and what it loads), which must not be able to reach the
+  # ID-token endpoint the release job holds.
+  test:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
   semantic-release:
+    needs: test
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
