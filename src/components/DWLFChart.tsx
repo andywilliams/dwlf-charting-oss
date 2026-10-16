@@ -24,6 +24,7 @@ import type {
   PaneGuide,
   PaneSpec,
   SeriesSpec,
+  SeriesStyle,
 } from '../charting/types';
 import type { ChartAnimationState } from '../hooks/useChartAnimations';
 import AnnotationLayer from './overlays/AnnotationLayer';
@@ -102,6 +103,13 @@ type PositionDatum = {
   entry: number;
   stop: number;
   target: number;
+  /**
+   * Draw the box over the pane's whole height, whatever the price axis resolves to, in `rewardColor`.
+   * `entry`/`stop`/`target` are then optional and the box does not widen the price axis: a time band
+   * (a window, a regime span) that must reach every price drawn, not stop at a guessed extent. Falls back
+   * to the series' `style.fullHeight`, as the colours do.
+   */
+  fullHeight?: boolean;
   messages?: PositionDatumMessage[];
   riskColor?: string;
   rewardColor?: string;
@@ -111,6 +119,15 @@ type PositionDatum = {
   pointer?: boolean;
   padding?: number;
 };
+
+// A box spans the pane's full height when it says so, else when its series' style does (as the colours fall back).
+const isFullHeight = (point: PositionDatum, style?: SeriesStyle): boolean => (point.fullHeight ?? style?.fullHeight) === true;
+
+// A box is drawn when it has a start and, unless it spans the pane's full height, all three prices.
+const isDrawablePosition = (point: PositionDatum | null | undefined, style?: SeriesStyle): point is PositionDatum => (
+  !!point && Number.isFinite(point.start) && (isFullHeight(point, style)
+    || (Number.isFinite(point.entry) && Number.isFinite(point.stop) && Number.isFinite(point.target)))
+);
 
 // Internal D3 scale type - distinct from the simpler XScale interface in charting/types.ts
 // which is used for annotation component props
@@ -316,11 +333,12 @@ const renderLineLikeSeries = (
   }
 
   if (series.type === 'area') {
+    const fullHeight = series.style?.fullHeight === true;
     const area = d3.area<LinePoint>()
       .defined(point => Number.isFinite(point.v))
       .x(point => xScale(point.t))
       .y0(() => scale.scale(scale.domain[0]))
-      .y1(point => scale.scale(point.v));
+      .y1(point => (fullHeight ? scale.scale(scale.domain[1]) : scale.scale(point.v)));
     const path = area(data);
     if (!path) return null;
     return <path d={path} fill={stroke} opacity={Math.min(0.4, opacity)} stroke="none" />;
@@ -519,16 +537,12 @@ const renderPositionSeries = (
   const defaultPadding = series.style?.padding ?? 6;
 
   const yScale = (value: number) => scale.scale(value);
+  const paneTop = Math.min(scale.scale(scale.domain[0]), scale.scale(scale.domain[1]));
 
   return (
     <g className="dwlf-position-series">
       {rawData.map((trade, index) => {
-        if (
-          !Number.isFinite(trade?.start)
-          || !Number.isFinite(trade?.entry)
-          || !Number.isFinite(trade?.stop)
-          || !Number.isFinite(trade?.target)
-        ) {
+        if (!isDrawablePosition(trade, series.style)) {
           return null;
         }
 
@@ -552,6 +566,7 @@ const renderPositionSeries = (
             entryPrice={trade.entry}
             stopPrice={trade.stop}
             takePrice={trade.target}
+            fullHeight={isFullHeight(trade, series.style) ? { top: paneTop, height } : undefined}
             xScale={xScale}
             yScale={yScale}
             xBandwidth={bandwidth}
@@ -761,6 +776,15 @@ const filterSeriesDataForRange = (
     return series.data.filter((point: any) => inWindow(point?.t));
   }
 
+  if (series.type === 'area' && series.style?.fullHeight === true) {
+    // A time band: keep each point whose segment to a neighbour reaches the window, so a band whose edges are
+    // both off-screen (zoomed into it) or only one is on screen still has the points that span the view.
+    const data = series.data as LinePoint[];
+    const reaches = (a?: LinePoint, b?: LinePoint) => !!a && !!b && Number.isFinite(a.t) && Number.isFinite(b.t)
+      && Math.max(a.t, b.t) >= windowStart && Math.min(a.t, b.t) <= windowEnd;
+    return data.filter((point, i) => inWindow(point?.t) || reaches(data[i - 1], point) || reaches(point, data[i + 1]));
+  }
+
   if (series.type === 'hist' || series.type === 'area') {
     return series.data.filter((point: any) => inWindow(point?.t));
   }
@@ -779,6 +803,70 @@ const filterSeriesDataForRange = (
   }
 
   return series.data;
+};
+
+type CompressedTimeData = { rawToIndex: Map<number, number>; indexToRaw: number[] };
+
+/**
+ * One position datum's times onto the compressed index scale: its edges and its message times. A time off the
+ * bars (a band that started before the view, or runs past the last bar, or a message between bars) maps to a
+ * fractional index as line and area points do, else to just off-screen: a raw timestamp on the index scale would
+ * draw the box ~1e12px wide, or not at all, and point a bubble at x ~1e13.
+ */
+const remapPositionDatum = (point: any, compressedTimeData: CompressedTimeData) => {
+  if (!point) {
+    return point;
+  }
+  const next: any = { ...point };
+
+  const toIndex = (original: number): number | undefined => {
+    const times = compressedTimeData.indexToRaw;
+    const exact = compressedTimeData.rawToIndex.get(original);
+    if (exact !== undefined) return exact;
+    const fractional = resolveFractionalIndex(times, original);
+    if (fractional !== undefined) return fractional;
+    if (!times.length) return undefined;
+    return original <= times[0] ? -1 : times.length;
+  };
+
+  const originalStart = point.__rawStart ?? point.start;
+  if (Number.isFinite(originalStart)) {
+    const idxStart = toIndex(originalStart as number);
+    if (idxStart !== undefined) {
+      next.__rawStart = originalStart;
+      next.start = idxStart;
+    }
+  }
+
+  if (Number.isFinite(point.end ?? NaN)) {
+    const originalEnd = point.__rawEnd ?? point.end;
+    if (Number.isFinite(originalEnd)) {
+      const idxEnd = toIndex(originalEnd as number);
+      if (idxEnd !== undefined) {
+        next.__rawEnd = originalEnd;
+        next.end = idxEnd;
+      }
+    }
+  }
+
+  if (Array.isArray(point.messages)) {
+    next.messages = point.messages.map((message: any) => {
+      if (!Number.isFinite(message?.t ?? NaN)) {
+        return message;
+      }
+      const original = message.__rawTime ?? message.t;
+      const idxMessage = toIndex(original);
+      if (idxMessage === undefined) {
+        return message;
+      }
+      if (message.t === idxMessage && message.__rawTime) {
+        return message;
+      }
+      return { ...message, __rawTime: original, t: idxMessage };
+    });
+  }
+
+  return next;
 };
 
 const renderSeries = (
@@ -818,6 +906,14 @@ const computeSeriesHover = (series: SeriesSpec, time: number): HoverSeries => {
     return { key: series.key, color: series.style?.color ?? series.color, value: null, display: '—', raw: null };
   }
 
+  // A full-height area is a time band: its `v` is not a price, so it never feeds the crosshair, the price label or
+  // a click.
+  if (series.type === 'area' && series.style?.fullHeight === true) {
+    const point = isLinePointArray(series.data) ? findNearestLinePoint(series.data, time) : null;
+    const display = series.tooltipFormatter && point ? series.tooltipFormatter(point) : '—';
+    return { key: series.key, color: series.style?.color ?? series.color, value: null, display, raw: null };
+  }
+
   if (series.type === 'ohlc' && isOhlcArray(series.data)) {
     const point = findNearestOhlcPoint(series.data, time);
     if (!point) {
@@ -851,8 +947,7 @@ const computeSeriesHover = (series: SeriesSpec, time: number): HoverSeries => {
   }
 
   if (series.type === 'position') {
-    const data = (series.data as PositionDatum[])
-      .filter(point => Number.isFinite(point?.start) && Number.isFinite(point?.entry) && Number.isFinite(point?.stop) && Number.isFinite(point?.target));
+    const data = (series.data as PositionDatum[]).filter((point) => isDrawablePosition(point, series.style));
     if (!data.length) {
       return { key: series.key, color: series.style?.color ?? series.color, value: null, display: '—', raw: null };
     }
@@ -876,11 +971,15 @@ const computeSeriesHover = (series: SeriesSpec, time: number): HoverSeries => {
 
     const display = series.tooltipFormatter
       ? series.tooltipFormatter(nearest)
-      : `Entry ${formatNumber(nearest.entry)}  Stop ${formatNumber(nearest.stop)}  Target ${formatNumber(nearest.target)}`;
+      : isFullHeight(nearest, series.style)
+        ? '—'
+        : `Entry ${formatNumber(nearest.entry)}  Stop ${formatNumber(nearest.stop)}  Target ${formatNumber(nearest.target)}`;
 
     const color = series.style?.color ?? series.style?.riskColor ?? 'rgba(239, 68, 68, 0.8)';
 
-    return { key: series.key, color, value: nearest.entry ?? null, display, raw: nearest };
+    // A full-height band is not a price: it never feeds the crosshair (as a full-height area does not).
+    const value = isFullHeight(nearest, series.style) ? null : nearest.entry ?? null;
+    return { key: series.key, color, value, display, raw: nearest };
   }
 
   if (isLinePointArray(series.data)) {
@@ -1459,51 +1558,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
       }
 
       if (series.type === 'position') {
-        return data.map(point => {
-          if (!point) {
-            return point;
-          }
-          const next: any = { ...point };
-
-          const originalStart = point.__rawStart ?? point.start;
-          if (Number.isFinite(originalStart)) {
-            const idxStart = compressedTimeData.rawToIndex.get(originalStart as number);
-            if (idxStart !== undefined) {
-              next.__rawStart = originalStart;
-              next.start = idxStart;
-            }
-          }
-
-          if (Number.isFinite(point.end ?? NaN)) {
-            const originalEnd = point.__rawEnd ?? point.end;
-            if (Number.isFinite(originalEnd)) {
-              const idxEnd = compressedTimeData.rawToIndex.get(originalEnd as number);
-              if (idxEnd !== undefined) {
-                next.__rawEnd = originalEnd;
-                next.end = idxEnd;
-              }
-            }
-          }
-
-          if (Array.isArray(point.messages)) {
-            next.messages = point.messages.map((message: any) => {
-              if (!Number.isFinite(message?.t ?? NaN)) {
-                return message;
-              }
-              const original = message.__rawTime ?? message.t;
-              const idxMessage = compressedTimeData.rawToIndex.get(original);
-              if (idxMessage === undefined) {
-                return message;
-              }
-              if (message.t === idxMessage && message.__rawTime) {
-                return message;
-              }
-              return { ...message, __rawTime: original, t: idxMessage };
-            });
-          }
-
-          return next;
-        });
+        return data.map(point => remapPositionDatum(point, compressedTimeData));
       }
 
       return data.map(point => {
@@ -2568,6 +2623,10 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
   );
 });
 
-export { computeSeriesHover as __computeSeriesHoverForTests };
+export {
+  computeSeriesHover as __computeSeriesHoverForTests,
+  filterSeriesDataForRange as __filterSeriesDataForRangeForTests,
+  remapPositionDatum as __remapPositionDatumForTests,
+};
 export type { DwlfChartHandle, DWLFChartProps };
 export default DWLFChart;

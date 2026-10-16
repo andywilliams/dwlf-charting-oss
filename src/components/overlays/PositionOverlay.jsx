@@ -4,7 +4,9 @@ import MessageBubbleOverlay from './MessageBubbleOverlay';
 
 /**
  * PositionOverlay draws two semi-transparent rectangles to visualise
- * risk (entry ⇒ stop-loss) and reward (entry ⇒ take-profit).
+ * risk (entry ⇒ stop-loss) and reward (entry ⇒ take-profit). With
+ * `fullHeight` ({ top, height } of the pane) it draws one rectangle over the
+ * pane's whole height in `rewardColor` instead: a time band, not a trade.
  */
 export default function PositionOverlay({
   startDate,
@@ -25,9 +27,11 @@ export default function PositionOverlay({
   fontSize = 11,
   pointer = true,
   padding = 6,
+  fullHeight,
 }) {
   const [showMessages, setShowMessages] = useState(false);
-  if (startDate == null || entryPrice == null || stopPrice == null || takePrice == null) return null;
+  if (startDate == null) return null;
+  if (!fullHeight && (entryPrice == null || stopPrice == null || takePrice == null)) return null;
 
   const normalizeDomainValue = (value, fallback) => {
     if (value == null) return fallback;
@@ -42,16 +46,17 @@ export default function PositionOverlay({
   const x1 = xScale(start);
   const x2 = xScale(end);
 
-  // Risk rectangle (entry → stopLoss)
-  const riskY = yScale(Math.max(entryPrice, stopPrice));
-  const riskHeight = Math.abs(yScale(entryPrice) - yScale(stopPrice));
-
-  // Reward rectangle (entry → takeProfit)
-  const rewardY = yScale(Math.max(entryPrice, takePrice));
-  const rewardHeight = Math.abs(yScale(entryPrice) - yScale(takePrice));
-
   const width = x2 - x1;
   if (width <= 0) return null;
+
+  const rects = fullHeight
+    ? [{ key: 'band', y: fullHeight.top, height: fullHeight.height, fill: rewardColor }]
+    : [
+      // Risk rectangle (entry → stopLoss)
+      { key: 'risk', y: yScale(Math.max(entryPrice, stopPrice)), height: Math.abs(yScale(entryPrice) - yScale(stopPrice)), fill: riskColor },
+      // Reward rectangle (entry → takeProfit)
+      { key: 'reward', y: yScale(Math.max(entryPrice, takePrice)), height: Math.abs(yScale(entryPrice) - yScale(takePrice)), fill: rewardColor },
+    ];
 
   return (
     <g
@@ -62,22 +67,9 @@ export default function PositionOverlay({
       }}
       style={{ cursor: messages?.length ? 'pointer' : 'default' }}
     >
-      <rect
-        x={x1}
-        y={riskY}
-        width={width}
-        height={riskHeight}
-        fill={riskColor}
-        stroke="none"
-      />
-      <rect
-        x={x1}
-        y={rewardY}
-        width={width}
-        height={rewardHeight}
-        fill={rewardColor}
-        stroke="none"
-      />
+      {rects.map((r) => (
+        <rect key={r.key} x={x1} y={r.y} width={width} height={r.height} fill={r.fill} stroke="none" />
+      ))}
 
       {showMessages && messages && messages.length > 0 && chartWidth && chartHeight && (
         <MessageBubbleOverlay
@@ -101,9 +93,10 @@ export default function PositionOverlay({
 PositionOverlay.propTypes = {
   startDate: PropTypes.oneOfType([PropTypes.number, PropTypes.string, PropTypes.instanceOf(Date)]).isRequired,
   endDate: PropTypes.oneOfType([PropTypes.number, PropTypes.string, PropTypes.instanceOf(Date)]),
-  entryPrice: PropTypes.number.isRequired,
-  stopPrice: PropTypes.number.isRequired,
-  takePrice: PropTypes.number.isRequired,
+  entryPrice: PropTypes.number,
+  stopPrice: PropTypes.number,
+  takePrice: PropTypes.number,
+  fullHeight: PropTypes.shape({ top: PropTypes.number.isRequired, height: PropTypes.number.isRequired }),
   xScale: PropTypes.func.isRequired,
   yScale: PropTypes.func.isRequired,
   riskColor: PropTypes.string,

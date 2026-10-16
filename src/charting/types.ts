@@ -22,6 +22,14 @@ export interface SeriesStyle {
   lineWidth?: number;
   dashed?: boolean;
   opacity?: number;
+  /**
+   * A time band over the pane's whole height, whatever the price axis resolves to, left out of the auto-scaled
+   * domain. Area: fills over the points' times; a finite `v` is not read as a price (a non-finite one still breaks the
+   * fill between spans), and the band gives no hover value. Position: every box in the series spans
+   * the full height in `rewardColor` without prices, unless a datum's own `fullHeight` says otherwise (as the
+   * colours fall back from datum to style). Other series types ignore it.
+   */
+  fullHeight?: boolean;
   markerShape?: 'arrow-up' | 'arrow-down' | 'circle';
   markerSize?: number;
   markerOffsetY?: number;

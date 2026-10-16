@@ -31,6 +31,11 @@ const collectSeriesValues = (series: SeriesSpec): number[] => {
     return [];
   }
 
+  // A full-height area spans whatever the axis resolves to, so it never widens it.
+  if (series.type === 'area' && series.style?.fullHeight === true) {
+    return [];
+  }
+
   if (series.type === 'ohlc' && isOhlcArray(data)) {
     const lows = data.map(point => point.l).filter(isFiniteNumber);
     const highs = data.map(point => point.h).filter(isFiniteNumber);
@@ -54,7 +59,8 @@ const collectSeriesValues = (series: SeriesSpec): number[] => {
   if (series.type === 'position') {
     return (data as Array<Record<string, unknown>>)
       .flatMap(item => {
-        if (!item || typeof item !== 'object') {
+        // A full-height band spans whatever the axis resolves to, so it never widens it.
+        if (!item || typeof item !== 'object' || ((item as any).fullHeight ?? series.style?.fullHeight) === true) {
           return [] as number[];
         }
         const entry = Number((item as any).entry);

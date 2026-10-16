@@ -106,9 +106,9 @@ Each pane contains an array of series. Every series needs a `key` (unique identi
 | `ohlc` | Candlestick chart | `{ t, o, h, l, c }[]` |
 | `line` | Line chart | `{ t, v }[]` |
 | `hist` | Histogram bars | `{ t, v }[]` |
-| `area` | Filled area | `{ t, v }[]` |
-| `marker` | Point markers | `{ t, price, text?, tooltip?, shape? }[]` |
-| `position` | Trade positions | `{ t, price, type, stopLoss?, takeProfit? }[]` |
+| `area` | Filled area | `{ t, v }[]`; with `style.fullHeight: true` it fills the pane's whole height over its times (a time band) and never widens the price axis; each point still needs a finite placeholder `v` (e.g. 0), and a non-finite one breaks the fill between spans |
+| `marker` | Point markers | `{ t, v, label?, shape?, color?, size? }[]` |
+| `position` | Trade boxes, or full-height time bands | `{ start, end?, entry, stop, target, riskColor?, rewardColor?, messages? }[]`; with `fullHeight: true` (per box, or for the whole series in `style.fullHeight`) the box spans the pane's whole height in `rewardColor`, needs no prices and never widens the price axis |
 
 ### Series Colors
 
