@@ -172,6 +172,9 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
           fill={color}
           fontWeight={600}
           opacity={lineOpacity}
+          {...(annotation.labelHalo
+            ? { stroke: darkMode ? '#0f172a' : '#ffffff', strokeWidth: 3, strokeLinejoin: 'round' as const, paintOrder: 'stroke' }
+            : {})}
           style={{ pointerEvents: 'none', userSelect: 'none' }}
         >
           {typeLabelText}

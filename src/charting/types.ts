@@ -575,6 +575,11 @@ export interface BosLineAnnotation extends AnnotationBase {
   showPrice: boolean;
   /** Show type label (BOS/ChoCH, or the custom `label`) */
   showLabel: boolean;
+  /**
+   * Outline the type label in the chart's background colour so it stays legible over candles and
+   * zones (a static chart, such as a printed one, cannot be panned to clear it). Off by default.
+   */
+  labelHalo?: boolean;
 }
 
 export type Annotation = HLineAnnotation | VLineAnnotation | TextAnnotation | TrendLineAnnotation | RayAnnotation | CrossLineAnnotation | RectangleAnnotation | EmojiAnnotation | TimeRangeAnnotation | ArrowAnnotation | ChannelAnnotation | FibRetracementAnnotation | MeasureAnnotation | AlertLineAnnotation | BrushAnnotation | PitchforkAnnotation | FibExtensionAnnotation | OrderBlockAnnotation | FairValueGapAnnotation | BosLineAnnotation | LongPositionAnnotation | ShortPositionAnnotation;// v1.1.1
