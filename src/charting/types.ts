@@ -23,9 +23,10 @@ export interface SeriesStyle {
   dashed?: boolean;
   opacity?: number;
   /**
-   * Area only: fill the pane's whole height over the points' times (their `v` is ignored), whatever the price
-   * axis resolves to, and leave the series out of the auto-scaled domain. A time band (a regime span) that must
-   * reach every price drawn. Position boxes take the same per-datum `fullHeight` flag.
+   * A time band over the pane's whole height, whatever the price axis resolves to, left out of the auto-scaled
+   * domain. Area: fills over the points' times (their `v` is ignored). Position: every box in the series spans
+   * the full height in `rewardColor` without prices, unless a datum's own `fullHeight` says otherwise (as the
+   * colours fall back from datum to style). Other series types ignore it.
    */
   fullHeight?: boolean;
   markerShape?: 'arrow-up' | 'arrow-down' | 'circle';

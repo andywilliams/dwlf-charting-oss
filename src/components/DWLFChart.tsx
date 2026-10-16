@@ -24,6 +24,7 @@ import type {
   PaneGuide,
   PaneSpec,
   SeriesSpec,
+  SeriesStyle,
 } from '../charting/types';
 import type { ChartAnimationState } from '../hooks/useChartAnimations';
 import AnnotationLayer from './overlays/AnnotationLayer';
@@ -105,7 +106,8 @@ type PositionDatum = {
   /**
    * Draw the box over the pane's whole height, whatever the price axis resolves to, in `rewardColor`.
    * `entry`/`stop`/`target` are then optional and the box does not widen the price axis: a time band
-   * (a window, a regime span) that must reach every price drawn, not stop at a guessed extent.
+   * (a window, a regime span) that must reach every price drawn, not stop at a guessed extent. Falls back
+   * to the series' `style.fullHeight`, as the colours do.
    */
   fullHeight?: boolean;
   messages?: PositionDatumMessage[];
@@ -118,9 +120,12 @@ type PositionDatum = {
   padding?: number;
 };
 
+// A box spans the pane's full height when it says so, else when its series' style does (as the colours fall back).
+const isFullHeight = (point: PositionDatum, style?: SeriesStyle): boolean => (point.fullHeight ?? style?.fullHeight) === true;
+
 // A box is drawn when it has a start and, unless it spans the pane's full height, all three prices.
-const isDrawablePosition = (point: PositionDatum | null | undefined): point is PositionDatum => (
-  !!point && Number.isFinite(point.start) && (point.fullHeight === true
+const isDrawablePosition = (point: PositionDatum | null | undefined, style?: SeriesStyle): point is PositionDatum => (
+  !!point && Number.isFinite(point.start) && (isFullHeight(point, style)
     || (Number.isFinite(point.entry) && Number.isFinite(point.stop) && Number.isFinite(point.target)))
 );
 
@@ -537,7 +542,7 @@ const renderPositionSeries = (
   return (
     <g className="dwlf-position-series">
       {rawData.map((trade, index) => {
-        if (!isDrawablePosition(trade)) {
+        if (!isDrawablePosition(trade, series.style)) {
           return null;
         }
 
@@ -561,7 +566,7 @@ const renderPositionSeries = (
             entryPrice={trade.entry}
             stopPrice={trade.stop}
             takePrice={trade.target}
-            fullHeight={trade.fullHeight === true ? { top: paneTop, height } : undefined}
+            fullHeight={isFullHeight(trade, series.style) ? { top: paneTop, height } : undefined}
             xScale={xScale}
             yScale={yScale}
             xBandwidth={bandwidth}
@@ -861,7 +866,7 @@ const computeSeriesHover = (series: SeriesSpec, time: number): HoverSeries => {
   }
 
   if (series.type === 'position') {
-    const data = (series.data as PositionDatum[]).filter(isDrawablePosition);
+    const data = (series.data as PositionDatum[]).filter((point) => isDrawablePosition(point, series.style));
     if (!data.length) {
       return { key: series.key, color: series.style?.color ?? series.color, value: null, display: '—', raw: null };
     }
@@ -885,7 +890,9 @@ const computeSeriesHover = (series: SeriesSpec, time: number): HoverSeries => {
 
     const display = series.tooltipFormatter
       ? series.tooltipFormatter(nearest)
-      : `Entry ${formatNumber(nearest.entry)}  Stop ${formatNumber(nearest.stop)}  Target ${formatNumber(nearest.target)}`;
+      : isFullHeight(nearest, series.style)
+        ? series.key
+        : `Entry ${formatNumber(nearest.entry)}  Stop ${formatNumber(nearest.stop)}  Target ${formatNumber(nearest.target)}`;
 
     const color = series.style?.color ?? series.style?.riskColor ?? 'rgba(239, 68, 68, 0.8)';
 

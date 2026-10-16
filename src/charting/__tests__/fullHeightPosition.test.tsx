@@ -66,3 +66,16 @@ describe('full-height area', () => {
     expect(pathOf(at(100))).toBe(pathOf(at(95)));
   });
 });
+
+describe('series-wide fullHeight on positions', () => {
+  const styled = { key: 'windows', type: 'position' as const, style: { fullHeight: true }, data: [{ start: T0 + 2 * DAY, end: T0 + 5 * DAY }, { start: T0 + 6 * DAY, end: T0 + 8 * DAY, fullHeight: false, entry: 140, stop: 130, target: 150 }] };
+
+  it('style.fullHeight is the default; a datum can opt out', () => {
+    const spec: ChartSpec = { includeOverlaysInAutoScale: true, panes: [pane([{ key: 'p', type: 'ohlc', data: candles }, styled])] };
+    const overlays = renderToStaticMarkup(<DWLFChart spec={spec} />).split('class="position-overlay"').slice(1);
+    expect(overlays.map((o) => [...o.matchAll(/<rect [^>]*>/g)].length)).toEqual([1, 2]);
+    // the opted-out box's prices still widen the axis
+    const candlesOnly = resolvePaneDomain(pane([{ key: 'p', type: 'ohlc', data: candles }]), { includeOverlaysInAutoScale: true });
+    expect(resolvePaneDomain(spec.panes[0], { includeOverlaysInAutoScale: true })[1]).toBeGreaterThan(candlesOnly[1]);
+  });
+});
