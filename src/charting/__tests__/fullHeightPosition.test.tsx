@@ -130,3 +130,11 @@ describe('a band with an edge off the bars, gaps compressed and panning on', () 
     }
   });
 });
+
+describe('full-height position hover', () => {
+  it('gives no price value, even for a datum that carries prices', () => {
+    const series = { key: 'w', type: 'position' as const, style: { fullHeight: true }, data: [{ start: T0, end: T0 + 3 * DAY, entry: 500, stop: 400, target: 600 }] };
+    expect(__computeSeriesHoverForTests(series, T0 + DAY)).toMatchObject({ value: null, display: '—' });
+    expect(__computeSeriesHoverForTests({ ...series, style: {} }, T0 + DAY)).toMatchObject({ value: 500 });
+  });
+});

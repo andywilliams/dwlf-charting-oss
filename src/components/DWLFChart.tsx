@@ -908,12 +908,14 @@ const computeSeriesHover = (series: SeriesSpec, time: number): HoverSeries => {
     const display = series.tooltipFormatter
       ? series.tooltipFormatter(nearest)
       : isFullHeight(nearest, series.style)
-        ? series.key
+        ? '—'
         : `Entry ${formatNumber(nearest.entry)}  Stop ${formatNumber(nearest.stop)}  Target ${formatNumber(nearest.target)}`;
 
     const color = series.style?.color ?? series.style?.riskColor ?? 'rgba(239, 68, 68, 0.8)';
 
-    return { key: series.key, color, value: nearest.entry ?? null, display, raw: nearest };
+    // A full-height band is not a price: it never feeds the crosshair (as a full-height area does not).
+    const value = isFullHeight(nearest, series.style) ? null : nearest.entry ?? null;
+    return { key: series.key, color, value, display, raw: nearest };
   }
 
   if (isLinePointArray(series.data)) {
@@ -1537,7 +1539,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
                 return message;
               }
               const original = message.__rawTime ?? message.t;
-              const idxMessage = compressedTimeData.rawToIndex.get(original);
+              const idxMessage = toIndex(original);
               if (idxMessage === undefined) {
                 return message;
               }
