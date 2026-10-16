@@ -49,3 +49,20 @@ describe('full-height position', () => {
     expect(h).toBeGreaterThan(0);
   });
 });
+
+describe('full-height area', () => {
+  const area = { key: 'stage', type: 'area' as const, data: [{ t: T0 + 2 * DAY, v: 100 }, { t: T0 + 5 * DAY, v: 100 }], style: { color: '#22c55e', fullHeight: true } };
+
+  it('does not take part in the price axis', () => {
+    const candlesOnly = resolvePaneDomain(pane([{ key: 'p', type: 'ohlc', data: candles }]), { includeOverlaysInAutoScale: true });
+    const tall = { ...area, data: [{ t: T0 + 2 * DAY, v: 1000 }, { t: T0 + 5 * DAY, v: 1000 }] };
+    expect(resolvePaneDomain(pane([{ key: 'p', type: 'ohlc', data: candles }, tall]), { includeOverlaysInAutoScale: true })).toEqual(candlesOnly);
+  });
+
+  it('fills from the pane bottom to the pane top, whatever its points say', () => {
+    const at = (v: number) => renderToStaticMarkup(<DWLFChart spec={{ panes: [pane([{ key: 'p', type: 'ohlc', data: candles }, { ...area, data: area.data.map((d) => ({ ...d, v })) }])] }} />);
+    const pathOf = (markup: string) => /<path d="([^"]+)" fill="#22c55e"/.exec(markup)?.[1];
+    expect(pathOf(at(100))).toBeTruthy();
+    expect(pathOf(at(100))).toBe(pathOf(at(95)));
+  });
+});

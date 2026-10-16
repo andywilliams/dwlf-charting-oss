@@ -328,11 +328,12 @@ const renderLineLikeSeries = (
   }
 
   if (series.type === 'area') {
+    const fullHeight = series.style?.fullHeight === true;
     const area = d3.area<LinePoint>()
-      .defined(point => Number.isFinite(point.v))
+      .defined(point => fullHeight || Number.isFinite(point.v))
       .x(point => xScale(point.t))
       .y0(() => scale.scale(scale.domain[0]))
-      .y1(point => scale.scale(point.v));
+      .y1(point => (fullHeight ? scale.scale(scale.domain[1]) : scale.scale(point.v)));
     const path = area(data);
     if (!path) return null;
     return <path d={path} fill={stroke} opacity={Math.min(0.4, opacity)} stroke="none" />;

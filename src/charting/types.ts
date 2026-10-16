@@ -22,6 +22,12 @@ export interface SeriesStyle {
   lineWidth?: number;
   dashed?: boolean;
   opacity?: number;
+  /**
+   * Area only: fill the pane's whole height over the points' times (their `v` is ignored), whatever the price
+   * axis resolves to, and leave the series out of the auto-scaled domain. A time band (a regime span) that must
+   * reach every price drawn. Position boxes take the same per-datum `fullHeight` flag.
+   */
+  fullHeight?: boolean;
   markerShape?: 'arrow-up' | 'arrow-down' | 'circle';
   markerSize?: number;
   markerOffsetY?: number;

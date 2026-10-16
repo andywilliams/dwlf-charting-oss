@@ -31,6 +31,11 @@ const collectSeriesValues = (series: SeriesSpec): number[] => {
     return [];
   }
 
+  // A full-height area spans whatever the axis resolves to, so it never widens it.
+  if (series.type === 'area' && series.style?.fullHeight === true) {
+    return [];
+  }
+
   if (series.type === 'ohlc' && isOhlcArray(data)) {
     const lows = data.map(point => point.l).filter(isFiniteNumber);
     const highs = data.map(point => point.h).filter(isFiniteNumber);
