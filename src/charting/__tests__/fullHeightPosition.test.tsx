@@ -138,3 +138,17 @@ describe('full-height position hover', () => {
     expect(__computeSeriesHoverForTests({ ...series, style: {} }, T0 + DAY)).toMatchObject({ value: 500 });
   });
 });
+
+describe('remapPositionDatum (gaps compressed)', () => {
+  it('maps edges and message times off the bars to fractional or off-screen indices, never raw timestamps', async () => {
+    const { __remapPositionDatumForTests: remap } = await import('../../components/DWLFChart');
+    const indexToRaw = [T0, T0 + DAY, T0 + 2 * DAY];
+    const data = { rawToIndex: new Map(indexToRaw.map((t, i) => [t, i])), indexToRaw };
+    const out = remap({ start: T0 - 5 * DAY, end: T0 + 9 * DAY, messages: [{ t: T0 - 5 * DAY, v: 1, text: 'a' }, { t: T0 + DAY, v: 1, text: 'b' }] }, data);
+    for (const x of [out.start, out.end, ...out.messages.map((m: { t: number }) => m.t)]) {
+      expect(Math.abs(x)).toBeLessThan(100);
+    }
+    expect(out.messages[1].t).toBe(1);
+    expect(out.messages[0].__rawTime).toBe(T0 - 5 * DAY);
+  });
+});

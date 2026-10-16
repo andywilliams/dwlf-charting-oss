@@ -805,6 +805,70 @@ const filterSeriesDataForRange = (
   return series.data;
 };
 
+type CompressedTimeData = { rawToIndex: Map<number, number>; indexToRaw: number[] };
+
+/**
+ * One position datum's times onto the compressed index scale: its edges and its message times. A time off the
+ * bars (a band that started before the view, or runs past the last bar, or a message between bars) maps to a
+ * fractional index as line and area points do, else to just off-screen: a raw timestamp on the index scale would
+ * draw the box ~1e12px wide, or not at all, and point a bubble at x ~1e13.
+ */
+const remapPositionDatum = (point: any, compressedTimeData: CompressedTimeData) => {
+  if (!point) {
+    return point;
+  }
+  const next: any = { ...point };
+
+  const toIndex = (original: number): number | undefined => {
+    const times = compressedTimeData.indexToRaw;
+    const exact = compressedTimeData.rawToIndex.get(original);
+    if (exact !== undefined) return exact;
+    const fractional = resolveFractionalIndex(times, original);
+    if (fractional !== undefined) return fractional;
+    if (!times.length) return undefined;
+    return original <= times[0] ? -1 : times.length;
+  };
+
+  const originalStart = point.__rawStart ?? point.start;
+  if (Number.isFinite(originalStart)) {
+    const idxStart = toIndex(originalStart as number);
+    if (idxStart !== undefined) {
+      next.__rawStart = originalStart;
+      next.start = idxStart;
+    }
+  }
+
+  if (Number.isFinite(point.end ?? NaN)) {
+    const originalEnd = point.__rawEnd ?? point.end;
+    if (Number.isFinite(originalEnd)) {
+      const idxEnd = toIndex(originalEnd as number);
+      if (idxEnd !== undefined) {
+        next.__rawEnd = originalEnd;
+        next.end = idxEnd;
+      }
+    }
+  }
+
+  if (Array.isArray(point.messages)) {
+    next.messages = point.messages.map((message: any) => {
+      if (!Number.isFinite(message?.t ?? NaN)) {
+        return message;
+      }
+      const original = message.__rawTime ?? message.t;
+      const idxMessage = toIndex(original);
+      if (idxMessage === undefined) {
+        return message;
+      }
+      if (message.t === idxMessage && message.__rawTime) {
+        return message;
+      }
+      return { ...message, __rawTime: original, t: idxMessage };
+    });
+  }
+
+  return next;
+};
+
 const renderSeries = (
   series: SeriesSpec,
   scale: PaneComputedScale,
@@ -1494,64 +1558,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
       }
 
       if (series.type === 'position') {
-        return data.map(point => {
-          if (!point) {
-            return point;
-          }
-          const next: any = { ...point };
-
-          // An edge off the bars (a band that started before the view, or runs past the last bar) maps to a
-          // fractional index as line and area points do, else to just off-screen: a raw timestamp on the
-          // index scale would draw the box ~1e12px wide, or not at all.
-          const toIndex = (original: number): number | undefined => {
-            const times = compressedTimeData.indexToRaw;
-            const exact = compressedTimeData.rawToIndex.get(original);
-            if (exact !== undefined) return exact;
-            const fractional = resolveFractionalIndex(times, original);
-            if (fractional !== undefined) return fractional;
-            if (!times.length) return undefined;
-            return original <= times[0] ? -1 : times.length;
-          };
-
-          const originalStart = point.__rawStart ?? point.start;
-          if (Number.isFinite(originalStart)) {
-            const idxStart = toIndex(originalStart as number);
-            if (idxStart !== undefined) {
-              next.__rawStart = originalStart;
-              next.start = idxStart;
-            }
-          }
-
-          if (Number.isFinite(point.end ?? NaN)) {
-            const originalEnd = point.__rawEnd ?? point.end;
-            if (Number.isFinite(originalEnd)) {
-              const idxEnd = toIndex(originalEnd as number);
-              if (idxEnd !== undefined) {
-                next.__rawEnd = originalEnd;
-                next.end = idxEnd;
-              }
-            }
-          }
-
-          if (Array.isArray(point.messages)) {
-            next.messages = point.messages.map((message: any) => {
-              if (!Number.isFinite(message?.t ?? NaN)) {
-                return message;
-              }
-              const original = message.__rawTime ?? message.t;
-              const idxMessage = toIndex(original);
-              if (idxMessage === undefined) {
-                return message;
-              }
-              if (message.t === idxMessage && message.__rawTime) {
-                return message;
-              }
-              return { ...message, __rawTime: original, t: idxMessage };
-            });
-          }
-
-          return next;
-        });
+        return data.map(point => remapPositionDatum(point, compressedTimeData));
       }
 
       return data.map(point => {
@@ -2616,6 +2623,10 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
   );
 });
 
-export { computeSeriesHover as __computeSeriesHoverForTests, filterSeriesDataForRange as __filterSeriesDataForRangeForTests };
+export {
+  computeSeriesHover as __computeSeriesHoverForTests,
+  filterSeriesDataForRange as __filterSeriesDataForRangeForTests,
+  remapPositionDatum as __remapPositionDatumForTests,
+};
 export type { DwlfChartHandle, DWLFChartProps };
 export default DWLFChart;
