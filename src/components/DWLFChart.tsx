@@ -845,7 +845,9 @@ const computeSeriesHover = (series: SeriesSpec, time: number): HoverSeries => {
   // A full-height area is a time band: its `v` is not a price, so it never feeds the crosshair, the price label or
   // a click.
   if (series.type === 'area' && series.style?.fullHeight === true) {
-    return { key: series.key, color: series.style?.color ?? series.color, value: null, display: series.key, raw: null };
+    const point = isLinePointArray(series.data) ? findNearestLinePoint(series.data, time) : null;
+    const display = series.tooltipFormatter && point ? series.tooltipFormatter(point) : '—';
+    return { key: series.key, color: series.style?.color ?? series.color, value: null, display, raw: null };
   }
 
   if (series.type === 'ohlc' && isOhlcArray(series.data)) {
@@ -1496,9 +1498,22 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
           }
           const next: any = { ...point };
 
+          // An edge off the bars (a band that started before the view, or runs past the last bar) maps to a
+          // fractional index as line and area points do, else to just off-screen: a raw timestamp on the
+          // index scale would draw the box ~1e12px wide, or not at all.
+          const toIndex = (original: number): number | undefined => {
+            const times = compressedTimeData.indexToRaw;
+            const exact = compressedTimeData.rawToIndex.get(original);
+            if (exact !== undefined) return exact;
+            const fractional = resolveFractionalIndex(times, original);
+            if (fractional !== undefined) return fractional;
+            if (!times.length) return undefined;
+            return original <= times[0] ? -1 : times.length;
+          };
+
           const originalStart = point.__rawStart ?? point.start;
           if (Number.isFinite(originalStart)) {
-            const idxStart = compressedTimeData.rawToIndex.get(originalStart as number);
+            const idxStart = toIndex(originalStart as number);
             if (idxStart !== undefined) {
               next.__rawStart = originalStart;
               next.start = idxStart;
@@ -1508,7 +1523,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
           if (Number.isFinite(point.end ?? NaN)) {
             const originalEnd = point.__rawEnd ?? point.end;
             if (Number.isFinite(originalEnd)) {
-              const idxEnd = compressedTimeData.rawToIndex.get(originalEnd as number);
+              const idxEnd = toIndex(originalEnd as number);
               if (idxEnd !== undefined) {
                 next.__rawEnd = originalEnd;
                 next.end = idxEnd;

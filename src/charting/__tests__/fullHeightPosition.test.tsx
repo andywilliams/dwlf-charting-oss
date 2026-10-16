@@ -89,7 +89,8 @@ describe('full-height area', () => {
   });
 
   it('gives no hover value', () => {
-    expect(__computeSeriesHoverForTests(area, T0 + 3 * DAY)).toMatchObject({ value: null, raw: null, display: 'stage' });
+    expect(__computeSeriesHoverForTests(area, T0 + 3 * DAY)).toMatchObject({ value: null, raw: null, display: '—' });
+    expect(__computeSeriesHoverForTests({ ...area, tooltipFormatter: () => 'Stage 2' }, T0 + 3 * DAY)).toMatchObject({ value: null, display: 'Stage 2' });
   });
 });
 
@@ -113,5 +114,19 @@ describe('full-height area in a zoomed view', () => {
     expect(filter(area, T0 + 3 * DAY, T0 + 5 * DAY, DAY)).toHaveLength(2);
     expect(filter(area, T0 + 8 * DAY, T0 + 12 * DAY, DAY)).toHaveLength(2);
     expect(filter(area, T0 + 11 * DAY, T0 + 12 * DAY, DAY)).toHaveLength(0);
+  });
+});
+
+describe('a band with an edge off the bars, gaps compressed and panning on', () => {
+  it('is drawn across the plot, not dropped or a trillion pixels wide', () => {
+    const offEdges = { key: 'w', type: 'position' as const, data: [{ start: T0 - 5 * DAY, end: T0 + 3 * DAY, fullHeight: true, rewardColor: 'rgba(4, 5, 6, 0.2)' }, { start: T0 + 7 * DAY, end: T0 + 30 * DAY, fullHeight: true, rewardColor: 'rgba(7, 8, 9, 0.2)' }] };
+    const markup = renderToStaticMarkup(<DWLFChart spec={{ panes: [pane([{ key: 'p', type: 'ohlc', data: candles }, offEdges])] }} enablePanZoom compressGaps />);
+    for (const fill of ['rgba(4, 5, 6, 0.2)', 'rgba(7, 8, 9, 0.2)']) {
+      const rect = [...markup.matchAll(/<rect [^>]*>/g)].map((m) => m[0]).find((r) => r.includes(`fill="${fill}"`));
+      expect(rect, fill).toBeTruthy();
+      const width = Number(/ width="([-\d.e+]+)"/.exec(rect as string)?.[1]);
+      expect(width).toBeGreaterThan(0);
+      expect(width).toBeLessThan(10_000);
+    }
   });
 });
