@@ -171,7 +171,10 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
           fontSize={10}
           fill={color}
           fontWeight={600}
-          opacity={lineOpacity}
+          // With a halo, only the text dims on a pending break: the halo stays whole, or what is behind shows through it.
+          {...(annotation.labelHalo
+            ? { fillOpacity: lineOpacity, stroke: annotation.labelHalo, strokeWidth: 3, strokeLinejoin: 'round' as const, paintOrder: 'stroke' }
+            : { opacity: lineOpacity })}
           style={{ pointerEvents: 'none', userSelect: 'none' }}
         >
           {typeLabelText}
