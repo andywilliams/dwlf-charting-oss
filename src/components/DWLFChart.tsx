@@ -102,6 +102,12 @@ type PositionDatum = {
   entry: number;
   stop: number;
   target: number;
+  /**
+   * Draw the box over the pane's whole height, whatever the price axis resolves to, in `rewardColor`.
+   * `entry`/`stop`/`target` are then optional and the box does not widen the price axis: a time band
+   * (a window, a regime span) that must reach every price drawn, not stop at a guessed extent.
+   */
+  fullHeight?: boolean;
   messages?: PositionDatumMessage[];
   riskColor?: string;
   rewardColor?: string;
@@ -111,6 +117,12 @@ type PositionDatum = {
   pointer?: boolean;
   padding?: number;
 };
+
+// A box is drawn when it has a start and, unless it spans the pane's full height, all three prices.
+const isDrawablePosition = (point: PositionDatum | null | undefined): point is PositionDatum => (
+  !!point && Number.isFinite(point.start) && (point.fullHeight === true
+    || (Number.isFinite(point.entry) && Number.isFinite(point.stop) && Number.isFinite(point.target)))
+);
 
 // Internal D3 scale type - distinct from the simpler XScale interface in charting/types.ts
 // which is used for annotation component props
@@ -519,16 +531,12 @@ const renderPositionSeries = (
   const defaultPadding = series.style?.padding ?? 6;
 
   const yScale = (value: number) => scale.scale(value);
+  const paneTop = Math.min(scale.scale(scale.domain[0]), scale.scale(scale.domain[1]));
 
   return (
     <g className="dwlf-position-series">
       {rawData.map((trade, index) => {
-        if (
-          !Number.isFinite(trade?.start)
-          || !Number.isFinite(trade?.entry)
-          || !Number.isFinite(trade?.stop)
-          || !Number.isFinite(trade?.target)
-        ) {
+        if (!isDrawablePosition(trade)) {
           return null;
         }
 
@@ -552,6 +560,7 @@ const renderPositionSeries = (
             entryPrice={trade.entry}
             stopPrice={trade.stop}
             takePrice={trade.target}
+            fullHeight={trade.fullHeight === true ? { top: paneTop, height } : undefined}
             xScale={xScale}
             yScale={yScale}
             xBandwidth={bandwidth}
@@ -851,8 +860,7 @@ const computeSeriesHover = (series: SeriesSpec, time: number): HoverSeries => {
   }
 
   if (series.type === 'position') {
-    const data = (series.data as PositionDatum[])
-      .filter(point => Number.isFinite(point?.start) && Number.isFinite(point?.entry) && Number.isFinite(point?.stop) && Number.isFinite(point?.target));
+    const data = (series.data as PositionDatum[]).filter(isDrawablePosition);
     if (!data.length) {
       return { key: series.key, color: series.style?.color ?? series.color, value: null, display: '—', raw: null };
     }

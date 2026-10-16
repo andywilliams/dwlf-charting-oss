@@ -54,7 +54,8 @@ const collectSeriesValues = (series: SeriesSpec): number[] => {
   if (series.type === 'position') {
     return (data as Array<Record<string, unknown>>)
       .flatMap(item => {
-        if (!item || typeof item !== 'object') {
+        // A full-height band spans whatever the axis resolves to, so it never widens it.
+        if (!item || typeof item !== 'object' || (item as any).fullHeight === true) {
           return [] as number[];
         }
         const entry = Number((item as any).entry);
