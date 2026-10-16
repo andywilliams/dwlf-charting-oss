@@ -33,5 +33,13 @@ describe('BosLineAnnotationView type label', () => {
     const text = draw({ labelHalo: '#fbfaf6' });
     expect(text).toContain('stroke="#fbfaf6"');
     expect(text).toContain('paint-order="stroke"');
+    expect(text).not.toContain(' opacity=');
+  });
+
+  it('dims only the text of a pending break with a halo, so the halo stays whole', () => {
+    const text = draw({ labelHalo: '#fbfaf6', confirmed: false });
+    expect(text).toContain('fill-opacity="0.5"');
+    expect(text).not.toContain(' opacity=');
+    expect(draw({ confirmed: false })).toContain(' opacity="0.5"');
   });
 });
