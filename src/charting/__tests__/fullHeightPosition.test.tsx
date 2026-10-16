@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { DWLFChart } from '../../components';
+import { DWLFChart, __computeSeriesHoverForTests } from '../../components';
 import type { ChartSpec, PaneSpec } from '../types';
 import { resolvePaneDomain } from '../scales';
 
@@ -47,6 +47,12 @@ describe('full-height position', () => {
       expect(zy + zh).toBeLessThanOrEqual(y + h + 1e-6);
     }
     expect(h).toBeGreaterThan(0);
+    // the band's span is the pane's, not the prices': a far higher priced box moves the axis, not the band
+    const tall = { ...zone, data: [{ ...zone.data[0], entry: 900, stop: 850, target: 1000 }] };
+    const other = renderToStaticMarkup(<DWLFChart spec={{ ...spec, panes: [pane([{ key: 'p', type: 'ohlc', data: candles }, band, tall])] }} />);
+    const otherBand = /<rect [^>]*fill="rgba\(1, 2, 3, 0.2\)"[^>]*>/.exec(other)?.[0] as string;
+    expect(Number(/ y="([-\d.]+)"/.exec(otherBand)?.[1])).toBe(y);
+    expect(Number(/ height="([-\d.]+)"/.exec(otherBand)?.[1])).toBe(h);
   });
 });
 
@@ -60,10 +66,30 @@ describe('full-height area', () => {
   });
 
   it('fills from the pane bottom to the pane top, whatever its points say', () => {
-    const at = (v: number) => renderToStaticMarkup(<DWLFChart spec={{ panes: [pane([{ key: 'p', type: 'ohlc', data: candles }, { ...area, data: area.data.map((d) => ({ ...d, v })) }])] }} />);
-    const pathOf = (markup: string) => /<path d="([^"]+)" fill="#22c55e"/.exec(markup)?.[1];
-    expect(pathOf(at(100))).toBeTruthy();
-    expect(pathOf(at(100))).toBe(pathOf(at(95)));
+    const at = (v: number) => renderToStaticMarkup(<DWLFChart spec={{ panes: [pane([{ key: 'p', type: 'ohlc', data: candles }, { ...area, style: { ...area.style, color: '#123456' }, data: area.data.map((d) => ({ ...d, v })) }])] }} />);
+    const pathOf = (markup: string) => /<path d="([^"]+)" fill="#123456"/.exec(markup)?.[1];
+    const ys = (d: string) => [...d.matchAll(/[ML,]([-\d.]+),([-\d.]+)/g)].map((m) => Number(m[2]));
+    const filled = pathOf(at(100));
+    expect(filled).toBeTruthy();
+    expect(pathOf(at(95))).toBe(filled);
+    // the fill spans exactly what a full-height box spans: the pane, top to bottom
+    const markup = renderToStaticMarkup(<DWLFChart spec={{ panes: [pane([{ key: 'p', type: 'ohlc', data: candles }, band, { ...area, style: { ...area.style, color: '#123456' } }])] }} />);
+    const rect = /<rect [^>]*fill="rgba\(1, 2, 3, 0.2\)"[^>]*>/.exec(markup)?.[0] as string;
+    const top = Number(/ y="([-\d.]+)"/.exec(rect)?.[1]);
+    const height = Number(/ height="([-\d.]+)"/.exec(rect)?.[1]);
+    const areaYs = ys(pathOf(markup) as string);
+    expect(Math.min(...areaYs)).toBeCloseTo(top, 6);
+    expect(Math.max(...areaYs)).toBeCloseTo(top + height, 6);
+  });
+
+  it('a non-finite point still breaks the fill between spans', () => {
+    const spans = { ...area, style: { ...area.style, color: '#123456' }, data: [{ t: T0, v: 0 }, { t: T0 + DAY, v: 0 }, { t: T0 + 2 * DAY, v: Number.NaN }, { t: T0 + 3 * DAY, v: 0 }, { t: T0 + 4 * DAY, v: 0 }] };
+    const d = /<path d="([^"]+)" fill="#123456"/.exec(renderToStaticMarkup(<DWLFChart spec={{ panes: [pane([{ key: 'p', type: 'ohlc', data: candles }, spans])] }} />))?.[1];
+    expect(d?.match(/M/g)?.length).toBe(2);
+  });
+
+  it('gives no hover value', () => {
+    expect(__computeSeriesHoverForTests(area, T0 + 3 * DAY)).toMatchObject({ value: null, raw: null, display: 'stage' });
   });
 });
 
@@ -77,5 +103,15 @@ describe('series-wide fullHeight on positions', () => {
     // the opted-out box's prices still widen the axis
     const candlesOnly = resolvePaneDomain(pane([{ key: 'p', type: 'ohlc', data: candles }]), { includeOverlaysInAutoScale: true });
     expect(resolvePaneDomain(spec.panes[0], { includeOverlaysInAutoScale: true })[1]).toBeGreaterThan(candlesOnly[1]);
+  });
+});
+
+describe('full-height area in a zoomed view', () => {
+  it('keeps the band when the view sits inside it, or holds one edge', async () => {
+    const { __filterSeriesDataForRangeForTests: filter } = await import('../../components/DWLFChart');
+    const area = { key: 'stage', type: 'area' as const, style: { fullHeight: true }, data: [{ t: T0, v: 0 }, { t: T0 + 9 * DAY, v: 0 }] };
+    expect(filter(area, T0 + 3 * DAY, T0 + 5 * DAY, DAY)).toHaveLength(2);
+    expect(filter(area, T0 + 8 * DAY, T0 + 12 * DAY, DAY)).toHaveLength(2);
+    expect(filter(area, T0 + 11 * DAY, T0 + 12 * DAY, DAY)).toHaveLength(0);
   });
 });

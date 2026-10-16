@@ -335,7 +335,7 @@ const renderLineLikeSeries = (
   if (series.type === 'area') {
     const fullHeight = series.style?.fullHeight === true;
     const area = d3.area<LinePoint>()
-      .defined(point => fullHeight || Number.isFinite(point.v))
+      .defined(point => Number.isFinite(point.v))
       .x(point => xScale(point.t))
       .y0(() => scale.scale(scale.domain[0]))
       .y1(point => (fullHeight ? scale.scale(scale.domain[1]) : scale.scale(point.v)));
@@ -776,6 +776,15 @@ const filterSeriesDataForRange = (
     return series.data.filter((point: any) => inWindow(point?.t));
   }
 
+  if (series.type === 'area' && series.style?.fullHeight === true) {
+    // A time band: keep each point whose segment to a neighbour reaches the window, so a band whose edges are
+    // both off-screen (zoomed into it) or only one is on screen still has the points that span the view.
+    const data = series.data as LinePoint[];
+    const reaches = (a?: LinePoint, b?: LinePoint) => !!a && !!b && Number.isFinite(a.t) && Number.isFinite(b.t)
+      && Math.max(a.t, b.t) >= windowStart && Math.min(a.t, b.t) <= windowEnd;
+    return data.filter((point, i) => inWindow(point?.t) || reaches(data[i - 1], point) || reaches(point, data[i + 1]));
+  }
+
   if (series.type === 'hist' || series.type === 'area') {
     return series.data.filter((point: any) => inWindow(point?.t));
   }
@@ -831,6 +840,12 @@ const renderSeries = (
 const computeSeriesHover = (series: SeriesSpec, time: number): HoverSeries => {
   if (!Array.isArray(series.data) || series.data.length === 0) {
     return { key: series.key, color: series.style?.color ?? series.color, value: null, display: '—', raw: null };
+  }
+
+  // A full-height area is a time band: its `v` is not a price, so it never feeds the crosshair, the price label or
+  // a click.
+  if (series.type === 'area' && series.style?.fullHeight === true) {
+    return { key: series.key, color: series.style?.color ?? series.color, value: null, display: series.key, raw: null };
   }
 
   if (series.type === 'ohlc' && isOhlcArray(series.data)) {
@@ -2584,6 +2599,6 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
   );
 });
 
-export { computeSeriesHover as __computeSeriesHoverForTests };
+export { computeSeriesHover as __computeSeriesHoverForTests, filterSeriesDataForRange as __filterSeriesDataForRangeForTests };
 export type { DwlfChartHandle, DWLFChartProps };
 export default DWLFChart;
