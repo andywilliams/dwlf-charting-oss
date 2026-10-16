@@ -173,7 +173,7 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
           fontWeight={600}
           opacity={lineOpacity}
           {...(annotation.labelHalo
-            ? { stroke: darkMode ? '#0f172a' : '#ffffff', strokeWidth: 3, strokeLinejoin: 'round' as const, paintOrder: 'stroke' }
+            ? { stroke: annotation.labelHalo, strokeWidth: 3, strokeLinejoin: 'round' as const, paintOrder: 'stroke' }
             : {})}
           style={{ pointerEvents: 'none', userSelect: 'none' }}
         >

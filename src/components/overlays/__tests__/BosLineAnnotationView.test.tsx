@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import BosLineAnnotationView from '../BosLineAnnotationView';
 import { createBosLineAnnotation } from '../AnnotationLayer';
 
-const draw = (options: Parameters<typeof createBosLineAnnotation>[6], darkMode = false) => {
+const draw = (options: Parameters<typeof createBosLineAnnotation>[6]) => {
   const annotation = createBosLineAnnotation('XPT/USD', '1d', 2000, 100, 'ChoCH', 'bullish', { startTime: 1000, showPrice: false, ...options });
   const markup = renderToStaticMarkup(
     <svg>
@@ -14,7 +14,6 @@ const draw = (options: Parameters<typeof createBosLineAnnotation>[6], darkMode =
         yScale={{ domain: [0, 200], scale: () => 150, invert: (v: number) => v }}
         chartWidth={400}
         paneHeight={300}
-        darkMode={darkMode}
       />
     </svg>,
   );
@@ -30,8 +29,9 @@ describe('BosLineAnnotationView type label', () => {
     expect(text).not.toContain('stroke=');
   });
 
-  it('outlines the label in the background colour when asked, so it reads over candles and zones', () => {
-    expect(draw({ labelHalo: true })).toMatch(/stroke="#ffffff".*paint-order="stroke"|paint-order="stroke".*stroke="#ffffff"/);
-    expect(draw({ labelHalo: true }, true)).toContain('stroke="#0f172a"');
+  it('outlines the label in the colour the host gives (its background), so it reads over candles and zones', () => {
+    const text = draw({ labelHalo: '#fbfaf6' });
+    expect(text).toContain('stroke="#fbfaf6"');
+    expect(text).toContain('paint-order="stroke"');
   });
 });
