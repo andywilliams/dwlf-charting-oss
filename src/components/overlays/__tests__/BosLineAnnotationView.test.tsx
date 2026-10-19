@@ -132,13 +132,13 @@ describe('BosLineAnnotationView end-beside on a full-width line', () => {
   });
 });
 
-describe('BosLineAnnotationView opacity (DWLF-472)', () => {
-  it('draws a faint line and label, and multiplies a pending line\'s half strength', () => {
-    const faint = renderToStaticMarkup(<svg><BosLineAnnotationView annotation={createBosLineAnnotation('X', '1d', 2000, 100, 'BOS', 'bearish', { startTime: 1000, showPrice: false, opacity: 0.4 })} xScale={((t: number) => t / 10) as never} yScale={{ domain: [0, 200], scale: () => 150, invert: (v: number) => v }} chartWidth={400} paneHeight={300} /></svg>);
+describe('BosLineAnnotationView strokeOpacity (DWLF-472)', () => {
+  it('draws a faint line and label, its strokeOpacity replacing the default (a pending line\'s half too)', () => {
+    const faint = renderToStaticMarkup(<svg><BosLineAnnotationView annotation={createBosLineAnnotation('X', '1d', 2000, 100, 'BOS', 'bearish', { startTime: 1000, showPrice: false, strokeOpacity: 0.4 })} xScale={((t: number) => t / 10) as never} yScale={{ domain: [0, 200], scale: () => 150, invert: (v: number) => v }} chartWidth={400} paneHeight={300} /></svg>);
     expect(faint).toMatch(/<line[^>]*stroke-dasharray[^>]*opacity="0.4"|<line[^>]*opacity="0.4"/);
     expect(faint.match(/<text[^>]*>BOS<\/text>/)![0]).toContain('opacity="0.4"');
-    const pending = renderToStaticMarkup(<svg><BosLineAnnotationView annotation={createBosLineAnnotation('X', '1d', 2000, 100, 'BOS', 'bearish', { startTime: 1000, showPrice: false, opacity: 0.4, confirmed: false })} xScale={((t: number) => t / 10) as never} yScale={{ domain: [0, 200], scale: () => 150, invert: (v: number) => v }} chartWidth={400} paneHeight={300} /></svg>);
-    expect(pending.match(/<text[^>]*>BOS<\/text>/)![0]).toContain('opacity="0.2"');
+    const pending = renderToStaticMarkup(<svg><BosLineAnnotationView annotation={createBosLineAnnotation('X', '1d', 2000, 100, 'BOS', 'bearish', { startTime: 1000, showPrice: false, strokeOpacity: 0.4, confirmed: false })} xScale={((t: number) => t / 10) as never} yScale={{ domain: [0, 200], scale: () => 150, invert: (v: number) => v }} chartWidth={400} paneHeight={300} /></svg>);
+    expect(pending.match(/<text[^>]*>BOS<\/text>/)![0]).toContain('opacity="0.4"');
   });
 
   it('draws a resolved placement the layer gives it', () => {

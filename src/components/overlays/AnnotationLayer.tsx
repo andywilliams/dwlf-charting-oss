@@ -47,7 +47,7 @@ import OrderBlockAnnotationView from './OrderBlockAnnotationView';
 import FairValueGapAnnotationView from './FairValueGapAnnotationView';
 import BosLineAnnotationView from './BosLineAnnotationView';
 import { fairValueGapRect, orderBlockRect } from './zoneRects';
-import { resolveBosLabels } from './BosLineAnnotationView';
+import { resolveBosLabels } from './bosLabels';
 import PositionAnnotationView from './PositionAnnotationView';
 
 export interface AnnotationLayerProps {
@@ -1281,7 +1281,7 @@ export const createBosLineAnnotation = (
     label: options.label,
     labelHalo: options.labelHalo,
     labelPlacement: options.labelPlacement,
-    opacity: options.opacity,
+    strokeOpacity: options.strokeOpacity,
     confirmed: options.confirmed ?? true,
     color: options.color ?? defaultColor,
     lineStyle: options.lineStyle ?? 'solid',

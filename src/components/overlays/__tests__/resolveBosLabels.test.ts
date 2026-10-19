@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createBosLineAnnotation } from '../AnnotationLayer';
-import { bosGeometry, labelLayout, resolveBosLabels } from '../BosLineAnnotationView';
+import { bosGeometry, labelLayout, resolveBosLabels } from '../bosLabels';
 import { intersects } from '../zoneRects';
 
 // x = time / 10; y = 300 - price.
