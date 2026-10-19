@@ -583,11 +583,13 @@ export interface BosLineAnnotation extends AnnotationBase {
    */
   labelHalo?: string;
   /**
-   * Where the type label sits: at the segment's break end or its start (the swing), above or below
-   * the line. A host that knows what else is drawn near the line (zones, say) picks the clear side.
-   * Default: `end-above` for a bounded segment, `start-above` for a full-width line.
+   * Where the type label sits, beside the drawn line's right end (`end`: a segment's break) or its
+   * left end (`start`: a segment's swing), above or below it. `auto` is worked out when drawn: the
+   * first of end-above, end-below, start-above, start-below whose label box is clear of every order
+   * block and fair value gap drawn on the pane (end-above when none is). Default: `end-above` for a
+   * bounded segment, `start-above` for a full-width line.
    */
-  labelPlacement?: 'end-above' | 'end-below' | 'start-above' | 'start-below';
+  labelPlacement?: 'auto' | 'end-above' | 'end-below' | 'start-above' | 'start-below';
 }
 
 export type Annotation = HLineAnnotation | VLineAnnotation | TextAnnotation | TrendLineAnnotation | RayAnnotation | CrossLineAnnotation | RectangleAnnotation | EmojiAnnotation | TimeRangeAnnotation | ArrowAnnotation | ChannelAnnotation | FibRetracementAnnotation | MeasureAnnotation | AlertLineAnnotation | BrushAnnotation | PitchforkAnnotation | FibExtensionAnnotation | OrderBlockAnnotation | FairValueGapAnnotation | BosLineAnnotation | LongPositionAnnotation | ShortPositionAnnotation;// v1.1.1

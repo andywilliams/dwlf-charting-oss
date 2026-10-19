@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import type { BosLineAnnotation, PaneComputedScale, XScale } from '../../charting/types';
 import { LINE_STYLE_MAP, findClosestIndex } from './annotationUtils';
+import { intersects, type PixelRect } from './zoneRects';
 import useAnnotationDrag from './useAnnotationDrag';
 import { DRAG_HANDLE_SIZE, HANDLE_EDGE_OFFSET } from './annotationConstants';
 import { DragHandle, LineHitArea, SelectionGlow } from './primitives';
@@ -22,6 +23,28 @@ export interface BosLineAnnotationViewProps {
   dataLength?: number;
   /** Pre-computed compressed times array */
   compressedTimes?: number[];
+  /** The zone boxes drawn on the pane, in pixels: an `auto` label is placed clear of them. */
+  avoidRects?: PixelRect[];
+}
+
+type Placement = Exclude<NonNullable<BosLineAnnotation['labelPlacement']>, 'auto'>;
+const AUTO_ORDER: readonly Placement[] = ['end-above', 'end-below', 'start-above', 'start-below'];
+/** The label's box around its anchor: 10px bold text, about 6.5px a character, plus a little air. */
+const LABEL_HEIGHT = 12;
+const labelWidth = (text: string) => text.length * 6.5 + 4;
+
+/** The label box for a placement, in pixels, as the <text> below draws it. */
+export function labelBox(placement: Placement, text: string, y: number, startX: number, endX: number): PixelRect {
+  const w = labelWidth(text);
+  const atEnd = placement.startsWith('end');
+  const left = atEnd ? endX - 4 - w : startX + 4;
+  const top = placement.endsWith('below') ? y + 3 : y - 3 - LABEL_HEIGHT;
+  return { left, right: left + w, top, bottom: top + LABEL_HEIGHT };
+}
+
+/** The first placement whose label box is clear of every zone; end-above when none is. */
+export function autoPlacement(text: string, y: number, startX: number, endX: number, avoid: readonly PixelRect[]): Placement {
+  return AUTO_ORDER.find((p) => !avoid.some((r) => intersects(labelBox(p, text, y, startX, endX), r))) ?? 'end-above';
 }
 
 /** Default colors based on direction */
@@ -55,6 +78,7 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
   timeToIndex,
   dataLength = 0,
   compressedTimes,
+  avoidRects = [],
 }) => {
   const dragStartY = useRef<number>(0);
   const dragStartPrice = useRef<number>(0);
@@ -123,7 +147,8 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
   const lineStartX = hasSegment ? (startXOpt as number) : breakX;
   const lineEndX = hasSegment ? breakX : chartWidth;
 
-  const placement = annotation.labelPlacement ?? (hasSegment ? 'end-above' : 'start-above');
+  const asked = annotation.labelPlacement ?? (hasSegment ? 'end-above' : 'start-above');
+  const placement = asked === 'auto' ? autoPlacement(typeLabelText, y, lineStartX, lineEndX, avoidRects) : asked;
   const labelAtEnd = placement.startsWith('end');
   const labelBelow = placement.endsWith('below');
 

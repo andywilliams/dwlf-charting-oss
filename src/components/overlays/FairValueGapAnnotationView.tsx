@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import type { FairValueGapAnnotation, PaneComputedScale, XScale } from '../../charting/types';
-import { findClosestIndex, LINE_STYLE_MAP, screenToTimeDelta as screenToTimeDeltaFor } from './annotationUtils';
+import { LINE_STYLE_MAP, screenToTimeDelta as screenToTimeDeltaFor } from './annotationUtils';
+import { fairValueGapRect } from './zoneRects';
 import useAnnotationDrag from './useAnnotationDrag';
 import { RECT_HIT_PADDING } from './annotationConstants';
 
@@ -139,33 +140,11 @@ const FairValueGapAnnotationView: React.FC<FairValueGapAnnotationViewProps> = ({
     onDragMove: handleDragMove,
   });
 
-  // Get x positions - fallback to raw timestamp when timeToIndex is not available (non-compressGaps mode)
-  const getXValue = (time: number): number | undefined => {
-    if (timeToIndex && indexToTime && dataLength > 0) {
-      return findClosestIndex(time, compressedTimes, timeToIndex);
-    }
-    if (timeToIndex) return timeToIndex(time);
-    return undefined;
-  };
 
-  const xValue1 = getXValue(annotation.time1) ?? annotation.time1;
-  const xValue2 = getXValue(annotation.time2) ?? annotation.time2;
-
-  if (!Number.isFinite(xValue1) || !Number.isFinite(xValue2)) return null;
-
-  const x1 = xScale(xValue1);
-  const x2 = xScale(xValue2);
-
-  // Get y positions
-  const yTop = yScale.scale(annotation.top);
-  const yBottom = yScale.scale(annotation.bottom);
-
-  if ([x1, x2, yTop, yBottom].some(v => !Number.isFinite(v))) return null;
-
-  const left = Math.min(x1, x2);
-  const right = Math.max(x1, x2);
-  const top = Math.min(yTop, yBottom);
-  const bottom = Math.max(yTop, yBottom);
+  // The box, shared with the layer, which keeps a BOS line's label clear of it (zoneRects).
+  const rect = fairValueGapRect(annotation, { xScale, yScale, chartWidth, timeToIndex, indexToTime, dataLength, compressedTimes });
+  if (!rect) return null;
+  const { left, right, top, bottom } = rect;
   const rectWidth = right - left;
   const rectHeight = bottom - top;
 
