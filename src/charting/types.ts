@@ -587,7 +587,8 @@ export interface BosLineAnnotation extends AnnotationBase {
    * left end (`start`: a segment's swing), above or below it. `auto` is worked out when drawn: the
    * first of end-above, end-below, start-above, start-below (a full-width line: start-above,
    * start-below, its right end being the price badge's) whose label box is inside the pane and clear
-   * of every order block and fair value gap the layer draws on it (else the first). A view rendered
+   * of every order block and fair value gap the layer draws on it; else the first inside the pane;
+   * else the first. A view rendered
    * directly is given the boxes as `avoidRects` (`orderBlockRect`, `fairValueGapRect`). Default: `end-above` for a
    * bounded segment, `start-above` for a full-width line.
    */
