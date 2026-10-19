@@ -27,21 +27,36 @@ describe('zone boxes', () => {
 
 describe('a BOS label placed automatically (DWLF-468)', () => {
   // A segment at y=200 from x=100 (the swing) to x=300 (the break).
+  const PANE = { width: 400, height: 300 };
   const box = (p: Parameters<typeof labelBox>[0]) => labelBox(p, 'BOS', 200, 100, 300);
 
   it('keeps the default (above, at the break) when nothing is in the way', () => {
-    expect(autoPlacement('BOS', 200, 100, 300, [])).toBe('end-above');
+    expect(autoPlacement('BOS', 200, 100, 300, [], PANE, true)).toBe('end-above');
   });
 
   it('goes below when a zone sits just above the break end, and to the swing end when both sides there are taken', () => {
     const above = { left: 200, right: 400, top: 150, bottom: 195 };
-    expect(autoPlacement('BOS', 200, 100, 300, [above])).toBe('end-below');
+    expect(autoPlacement('BOS', 200, 100, 300, [above], PANE, true)).toBe('end-below');
     const below = { left: 0, right: 400, top: 205, bottom: 260 };
-    expect(autoPlacement('BOS', 200, 100, 300, [above, below])).toBe('start-above');
+    expect(autoPlacement('BOS', 200, 100, 300, [above, below], PANE, true)).toBe('start-above');
     expect(intersects(box('start-above'), above)).toBe(false);
   });
 
   it('falls back to the default when every place is taken (the halo still lets it read)', () => {
-    expect(autoPlacement('BOS', 200, 100, 300, [{ left: 0, right: 400, top: 0, bottom: 400 }])).toBe('end-above');
+    expect(autoPlacement('BOS', 200, 100, 300, [{ left: 0, right: 400, top: 0, bottom: 400 }], PANE, true)).toBe('end-above');
+  });
+
+  it('never picks a place off the pane: a swing panned off the left edge, or a line at the pane top', () => {
+    const above = { left: 200, right: 400, top: 150, bottom: 195 };
+    const below = { left: 200, right: 400, top: 205, bottom: 260 };
+    // The swing end is at x=-50: both start placements would draw off screen, so the default stands.
+    expect(autoPlacement('BOS', 200, -50, 300, [above, below], PANE, true)).toBe('end-above');
+    expect(autoPlacement('BOS', 5, 100, 300, [], PANE, true)).toBe('end-below');
+  });
+
+  it('a full-width line only tries its left end, never its right (the price badge is there)', () => {
+    expect(autoPlacement('BOS', 200, 0, 400, [], PANE, false)).toBe('start-above');
+    expect(autoPlacement('BOS', 200, 0, 400, [{ left: 0, right: 100, top: 150, bottom: 195 }], PANE, false)).toBe('start-below');
+    expect(autoPlacement('BOS', 200, 0, 400, [{ left: 0, right: 400, top: 0, bottom: 400 }], PANE, false)).toBe('start-above');
   });
 });

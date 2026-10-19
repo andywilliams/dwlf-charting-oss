@@ -28,7 +28,11 @@ export interface BosLineAnnotationViewProps {
 }
 
 type Placement = Exclude<NonNullable<BosLineAnnotation['labelPlacement']>, 'auto'>;
-const AUTO_ORDER: readonly Placement[] = ['end-above', 'end-below', 'start-above', 'start-below'];
+/** A segment tries its break end first; a full-width line only its left end (its right end is the price badge's). */
+const AUTO_ORDER: Record<'segment' | 'line', readonly Placement[]> = {
+  segment: ['end-above', 'end-below', 'start-above', 'start-below'],
+  line: ['start-above', 'start-below'],
+};
 /** The label's box around its anchor: 10px bold text, about 6.5px a character, plus a little air. */
 const LABEL_HEIGHT = 12;
 const labelWidth = (text: string) => text.length * 6.5 + 4;
@@ -42,9 +46,25 @@ export function labelBox(placement: Placement, text: string, y: number, startX: 
   return { left, right: left + w, top, bottom: top + LABEL_HEIGHT };
 }
 
-/** The first placement whose label box is clear of every zone; end-above when none is. */
-export function autoPlacement(text: string, y: number, startX: number, endX: number, avoid: readonly PixelRect[]): Placement {
-  return AUTO_ORDER.find((p) => !avoid.some((r) => intersects(labelBox(p, text, y, startX, endX), r))) ?? 'end-above';
+/**
+ * The first placement whose label box lies inside the pane and is clear of every zone; the line's
+ * default (end-above for a segment, start-above for a full-width line) when none is.
+ */
+export function autoPlacement(
+  text: string,
+  y: number,
+  startX: number,
+  endX: number,
+  avoid: readonly PixelRect[],
+  pane: { width: number; height: number },
+  segment: boolean,
+): Placement {
+  const order = AUTO_ORDER[segment ? 'segment' : 'line'];
+  const fits = (b: PixelRect) => b.left >= 0 && b.right <= pane.width && b.top >= 0 && b.bottom <= pane.height;
+  return order.find((p) => {
+    const b = labelBox(p, text, y, startX, endX);
+    return fits(b) && !avoid.some((r) => intersects(b, r));
+  }) ?? order[0];
 }
 
 /** Default colors based on direction */
@@ -148,7 +168,9 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
   const lineEndX = hasSegment ? breakX : chartWidth;
 
   const asked = annotation.labelPlacement ?? (hasSegment ? 'end-above' : 'start-above');
-  const placement = asked === 'auto' ? autoPlacement(typeLabelText, y, lineStartX, lineEndX, avoidRects) : asked;
+  const placement = asked === 'auto'
+    ? autoPlacement(typeLabelText, y, lineStartX, lineEndX, avoidRects, { width: chartWidth, height: paneHeight }, hasSegment)
+    : asked;
   const labelAtEnd = placement.startsWith('end');
   const labelBelow = placement.endsWith('below');
 
