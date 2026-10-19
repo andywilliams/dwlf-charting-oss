@@ -28,19 +28,28 @@ export interface BosLineAnnotationViewProps {
 }
 
 type Placement = Exclude<NonNullable<BosLineAnnotation['labelPlacement']>, 'auto'>;
-/** A segment tries its break end first; a full-width line only its left end (its right end is the price badge's). */
+/**
+ * A segment tries its break end first, then its swing end, then beside either end; a full-width line
+ * only its left end (its right end is the price badge's).
+ */
 const AUTO_ORDER: Record<'segment' | 'line', readonly Placement[]> = {
-  segment: ['end-above', 'end-below', 'start-above', 'start-below'],
-  line: ['start-above', 'start-below'],
+  segment: ['end-above', 'end-below', 'start-above', 'start-below', 'start-beside', 'end-beside'],
+  line: ['start-above', 'start-below', 'start-beside'],
 };
 /** The label's box around its anchor: 10px bold text, about 6.5px a character, plus a little air. */
 const LABEL_HEIGHT = 12;
+/** Beside an end the text is centred on the line, so its box is the 10px em box, no baseline air. */
+const BESIDE_HEIGHT = 10;
 const labelWidth = (text: string) => text.length * 6.5 + 4;
 
 /** The label box for a placement, in pixels, as the <text> below draws it. */
 export function labelBox(placement: Placement, text: string, y: number, startX: number, endX: number): PixelRect {
   const w = labelWidth(text);
   const atEnd = placement.startsWith('end');
+  if (placement.endsWith('beside')) {
+    const left = atEnd ? endX + 6 : startX - 6 - w;
+    return { left, right: left + w, top: y - BESIDE_HEIGHT / 2, bottom: y + BESIDE_HEIGHT / 2 };
+  }
   const left = atEnd ? endX - 4 - w : startX + 4;
   const top = placement.endsWith('below') ? y + 3 : y - 3 - LABEL_HEIGHT;
   return { left, right: left + w, top, bottom: top + LABEL_HEIGHT };
@@ -58,8 +67,9 @@ export function autoPlacement(
   avoid: readonly PixelRect[],
   pane: { width: number; height: number },
   segment: boolean,
+  priceBadge = false,
 ): Placement {
-  const order = AUTO_ORDER[segment ? 'segment' : 'line'];
+  const order = AUTO_ORDER[segment ? 'segment' : 'line'].filter((p) => !(priceBadge && p === 'end-beside'));
   const fits = (p: Placement) => {
     const b = labelBox(p, text, y, startX, endX);
     return b.left >= 0 && b.right <= pane.width && b.top >= 0 && b.bottom <= pane.height;
@@ -171,10 +181,11 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
 
   const asked = annotation.labelPlacement ?? (hasSegment ? 'end-above' : 'start-above');
   const placement = asked === 'auto'
-    ? autoPlacement(typeLabelText, y, lineStartX, lineEndX, avoidRects, { width: chartWidth, height: paneHeight }, hasSegment)
+    ? autoPlacement(typeLabelText, y, lineStartX, lineEndX, avoidRects, { width: chartWidth, height: paneHeight }, hasSegment, annotation.showPrice)
     : asked;
   const labelAtEnd = placement.startsWith('end');
   const labelBelow = placement.endsWith('below');
+  const labelBeside = placement.endsWith('beside');
 
   // For unconfirmed BOS, use dashed style to indicate pending
   const lineStyle = annotation.confirmed ? strokeDasharray : LINE_STYLE_MAP.dashed;
@@ -218,10 +229,11 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
           placement asked for (default: above it, at the break end of a segment). */}
       {annotation.showLabel && (
         <text
-          x={labelAtEnd ? lineEndX - 4 : lineStartX + 4}
-          y={labelBelow ? y + 5 : y - 5}
-          dominantBaseline={labelBelow ? 'hanging' : undefined}
-          textAnchor={labelAtEnd ? 'end' : 'start'}
+          x={labelBeside ? (labelAtEnd ? lineEndX + 6 : lineStartX - 6) : labelAtEnd ? lineEndX - 4 : lineStartX + 4}
+          y={labelBeside ? y : labelBelow ? y + 5 : y - 5}
+          dominantBaseline={labelBeside ? 'central' : labelBelow ? 'hanging' : undefined}
+          // Inside an end, the label reads inward along the line; beside one, outward from it.
+          textAnchor={labelAtEnd !== labelBeside ? 'end' : 'start'}
           fontSize={10}
           fill={color}
           fontWeight={600}

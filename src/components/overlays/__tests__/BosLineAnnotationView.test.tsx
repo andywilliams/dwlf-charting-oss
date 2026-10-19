@@ -57,6 +57,19 @@ describe('BosLineAnnotationView type label', () => {
   });
 });
 
+describe('BosLineAnnotationView beside labels', () => {
+  it.each([
+    ['start-beside', 'x="94"', 'end'],
+    ['end-beside', 'x="206"', 'start'],
+  ] as const)('places %s level with the line, reading outward', (labelPlacement, x, anchor) => {
+    const text = draw({ labelPlacement });
+    expect(text).toContain(x);
+    expect(text).toContain(`text-anchor="${anchor}"`);
+    expect(text).toContain('y="150"');
+    expect(text).toContain('dominant-baseline="central"');
+  });
+});
+
 describe('BosLineAnnotationView auto label', () => {
   it('draws an auto label on the side the zones leave clear', () => {
     const annotation = createBosLineAnnotation('XAU/USD', '1d', 2000, 100, 'BOS', 'bearish', { startTime: 1000, showPrice: false, labelPlacement: 'auto' });

@@ -583,16 +583,17 @@ export interface BosLineAnnotation extends AnnotationBase {
    */
   labelHalo?: string;
   /**
-   * Where the type label sits, beside the drawn line's right end (`end`: a segment's break) or its
-   * left end (`start`: a segment's swing), above or below it. `auto` is worked out when drawn: the
-   * first of end-above, end-below, start-above, start-below (a full-width line: start-above,
-   * start-below, its right end being the price badge's) whose label box is inside the pane and clear
-   * of every order block and fair value gap the layer draws on it; else the first inside the pane;
-   * else the first. A view rendered
+   * Where the type label sits, at the drawn line's right end (`end`: a segment's break) or its left
+   * end (`start`: a segment's swing): above or below the line just inside that end, or `beside` it,
+   * level with the line just outside that end. `auto` is worked out when drawn: the first of
+   * end-above, end-below, start-above, start-below, start-beside, end-beside (end-beside only without
+   * the price badge, which sits there; a full-width line: start-above, start-below, start-beside)
+   * whose label box is inside the pane and clear of every order block and fair value gap the layer
+   * draws on it; else the first inside the pane; else the first. A view rendered
    * directly is given the boxes as `avoidRects` (`orderBlockRect`, `fairValueGapRect`). Default: `end-above` for a
    * bounded segment, `start-above` for a full-width line.
    */
-  labelPlacement?: 'auto' | 'end-above' | 'end-below' | 'start-above' | 'start-below';
+  labelPlacement?: 'auto' | 'end-above' | 'end-below' | 'start-above' | 'start-below' | 'start-beside' | 'end-beside';
 }
 
 export type Annotation = HLineAnnotation | VLineAnnotation | TextAnnotation | TrendLineAnnotation | RayAnnotation | CrossLineAnnotation | RectangleAnnotation | EmojiAnnotation | TimeRangeAnnotation | ArrowAnnotation | ChannelAnnotation | FibRetracementAnnotation | MeasureAnnotation | AlertLineAnnotation | BrushAnnotation | PitchforkAnnotation | FibExtensionAnnotation | OrderBlockAnnotation | FairValueGapAnnotation | BosLineAnnotation | LongPositionAnnotation | ShortPositionAnnotation;// v1.1.1
