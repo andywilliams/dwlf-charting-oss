@@ -1203,8 +1203,8 @@ export const createOrderBlockAnnotation = (
   const now = Date.now();
   const defaultColor = direction === 'bullish' ? '#22c55e' : '#ef4444';
   return {
-    // Every option the caller gave, then the defaults (DWLF-461: listing fields by hand dropped endTime and
-    // strokeOpacity); the identity fields come last, so an option can never override them.
+    // Every option the caller gave first (DWLF-461: listing fields by hand dropped endTime and strokeOpacity),
+    // then the identity fields and the defaults, so an option never overrides an identity field.
     ...options,
     id: `ob-${now}-${Math.random().toString(36).slice(2, 9)}`,
     type: 'order_block',
@@ -1239,8 +1239,8 @@ export const createFairValueGapAnnotation = (
   const now = Date.now();
   const defaultColor = direction === 'bullish' ? '#22c55e' : '#ef4444';
   return {
-    // Every option the caller gave, then the defaults (DWLF-461: listing fields by hand dropped endTime and
-    // strokeOpacity); the identity fields come last, so an option can never override them.
+    // Every option the caller gave first (DWLF-461: listing fields by hand dropped strokeOpacity), then the
+    // identity fields and the defaults, so an option never overrides an identity field.
     ...options,
     id: `fvg-${now}-${Math.random().toString(36).slice(2, 9)}`,
     type: 'fair_value_gap',

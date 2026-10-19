@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createFairValueGapAnnotation, createOrderBlockAnnotation } from '../AnnotationLayer';
 
-// DWLF-461: both factories listed their fields by hand and dropped endTime and strokeOpacity.
+// DWLF-461: both factories listed their fields by hand: the order block's dropped endTime and strokeOpacity, the gap's strokeOpacity.
 describe('createOrderBlockAnnotation', () => {
   it('keeps every option it is given, endTime and strokeOpacity included', () => {
     const ob = createOrderBlockAnnotation('XAU/USD', '1d', 1000, 150, 140, 'bearish', { endTime: 5000, strokeOpacity: 0.4, state: 'tested', label: '' });
