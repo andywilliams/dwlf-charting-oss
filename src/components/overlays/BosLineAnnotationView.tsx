@@ -203,9 +203,11 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
   const priceBadge: PixelRect = { left: badgeLeft, right: badgeLeft + priceLabelWidth, top: y - 10, bottom: y + 10 };
 
   // A full-width line's right end is the chart's edge (and its badge's), so `end-beside` there is drawn as `start-beside`.
-  const asked = annotation.labelPlacement === 'end-beside' && !hasSegment ? 'start-beside' : annotation.labelPlacement ?? (hasSegment ? 'end-above' : 'start-above');
+  const requested = annotation.labelPlacement ?? (hasSegment ? 'end-above' : 'start-above');
+  const asked = requested === 'end-beside' && !hasSegment ? 'start-beside' : requested;
   // Beside a segment's break, the label goes past the price badge when one is drawn there.
-  const besideEndGap = annotation.showPrice && hasSegment ? priceLabelWidth + 4 : 0;
+  // Measured from the badge as drawn, so the label clears it whatever the badge's offset from the break.
+  const besideEndGap = annotation.showPrice && hasSegment ? priceBadge.right + 4 - (lineEndX + 6) : 0;
   const placement = asked === 'auto'
     ? autoPlacement(typeLabelText, y, lineStartX, lineEndX, annotation.showPrice ? [...avoidRects, priceBadge] : avoidRects, { width: chartWidth, height: paneHeight }, hasSegment, besideEndGap)
     : asked;

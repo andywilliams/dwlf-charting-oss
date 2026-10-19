@@ -49,10 +49,10 @@ describe('a BOS label placed automatically (DWLF-468)', () => {
   it('never picks a place off the pane: a swing panned off the left edge, or a line at the pane top', () => {
     const above = { left: 200, right: 400, top: 150, bottom: 195 };
     const below = { left: 200, right: 400, top: 205, bottom: 260 };
-    // The swing end is at x=-50: every start placement would draw off screen, so beside the break (or, with a
-    // price badge there, the default) stands.
+    // The swing end is at x=-50: every start placement would draw off screen, so beside the break stands.
     expect(autoPlacement('BOS', 200, -50, 300, [above, below], PANE, true)).toBe('end-beside');
-    expect(autoPlacement('BOS', 200, -50, 300, [above, below, { left: 306, right: 356, top: 190, bottom: 210 }], PANE, true)).toBe('end-above');
+    // Beside the break, but pushed past the pane's right edge (a wide badge there): back to the default.
+    expect(autoPlacement('BOS', 200, -50, 300, [above, below], PANE, true, 100)).toBe('end-above');
     expect(autoPlacement('BOS', 5, 100, 300, [], PANE, true)).toBe('end-below');
     // The break panned past the right edge, with zones over both swing-end places: on the pane over a zone beats off it.
     const startZones = [{ left: 0, right: 200, top: 150, bottom: 199 }, { left: 0, right: 200, top: 201, bottom: 260 }];
@@ -78,10 +78,11 @@ describe('a BOS label placed automatically (DWLF-468)', () => {
     expect(box('start-beside')).toEqual({ left: 100 - 6 - 23.5, right: 94, top: 195, bottom: 205 });
   });
 
-  it('tries beside the break when it is clear, and not when a box (the price badge, say) sits there', () => {
+  it('tries beside the break when it is clear, past a badge there (besideEndGap), and not when another box sits there', () => {
     const everywhereButRight = [{ left: 0, right: 300, top: 0, bottom: 400 }];
     expect(autoPlacement('BOS', 200, 100, 300, everywhereButRight, PANE, true)).toBe('end-beside');
     const badge = { left: 306, right: 356, top: 190, bottom: 210 };
-    expect(autoPlacement('BOS', 200, 100, 300, [...everywhereButRight, badge], PANE, true)).toBe('end-above');
+    expect(autoPlacement('BOS', 200, 100, 300, [...everywhereButRight, badge], PANE, true, 54)).toBe('end-beside');
+    expect(autoPlacement('BOS', 200, 100, 300, [...everywhereButRight, { left: 300, right: 400, top: 190, bottom: 210 }], PANE, true, 54)).toBe('end-above');
   });
 });
