@@ -582,6 +582,12 @@ export interface BosLineAnnotation extends AnnotationBase {
    * built for a render; a saved annotation keeps the colour it was saved with.
    */
   labelHalo?: string;
+  /**
+   * Where the type label sits: at the segment's break end or its start (the swing), above or below
+   * the line. A host that knows what else is drawn near the line (zones, say) picks the clear side.
+   * Default: `end-above` for a bounded segment, `start-above` for a full-width line.
+   */
+  labelPlacement?: 'end-above' | 'end-below' | 'start-above' | 'start-below';
 }
 
 export type Annotation = HLineAnnotation | VLineAnnotation | TextAnnotation | TrendLineAnnotation | RayAnnotation | CrossLineAnnotation | RectangleAnnotation | EmojiAnnotation | TimeRangeAnnotation | ArrowAnnotation | ChannelAnnotation | FibRetracementAnnotation | MeasureAnnotation | AlertLineAnnotation | BrushAnnotation | PitchforkAnnotation | FibExtensionAnnotation | OrderBlockAnnotation | FairValueGapAnnotation | BosLineAnnotation | LongPositionAnnotation | ShortPositionAnnotation;// v1.1.1

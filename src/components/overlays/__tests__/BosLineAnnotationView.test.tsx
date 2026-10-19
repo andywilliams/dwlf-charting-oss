@@ -42,4 +42,17 @@ describe('BosLineAnnotationView type label', () => {
     expect(text).not.toContain(' opacity=');
     expect(draw({ confirmed: false })).toContain(' opacity="0.5"');
   });
+
+  it.each([
+    ['end-above', 'x="196"', 'end', 'y="145"', false],
+    ['end-below', 'x="196"', 'end', 'y="155"', true],
+    ['start-above', 'x="104"', 'start', 'y="145"', false],
+    ['start-below', 'x="104"', 'start', 'y="155"', true],
+  ] as const)('places the label %s', (labelPlacement, x, anchor, y, hanging) => {
+    const text = draw({ labelPlacement });
+    expect(text).toContain(x);
+    expect(text).toContain(`text-anchor="${anchor}"`);
+    expect(text).toContain(y);
+    expect(text.includes('dominant-baseline="hanging"')).toBe(hanging);
+  });
 });

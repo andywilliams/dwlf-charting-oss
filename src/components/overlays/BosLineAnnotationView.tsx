@@ -123,6 +123,10 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
   const lineStartX = hasSegment ? (startXOpt as number) : breakX;
   const lineEndX = hasSegment ? breakX : chartWidth;
 
+  const placement = annotation.labelPlacement ?? (hasSegment ? 'end-above' : 'start-above');
+  const labelAtEnd = placement.startsWith('end');
+  const labelBelow = placement.endsWith('below');
+
   // For unconfirmed BOS, use dashed style to indicate pending
   const lineStyle = annotation.confirmed ? strokeDasharray : LINE_STYLE_MAP.dashed;
   // For unconfirmed, reduce opacity
@@ -161,13 +165,14 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
         opacity={lineOpacity}
       />
 
-      {/* Type label (BOS/ChoCH) — subtle line-coloured text just above the
-          line, anchored at the break end of the segment (no filled badge). */}
+      {/* Type label (BOS/ChoCH) — subtle line-coloured text beside the line, at the
+          placement asked for (default: above it, at the break end of a segment). */}
       {annotation.showLabel && (
         <text
-          x={hasSegment ? breakX - 4 : lineStartX + 4}
-          y={y - 5}
-          textAnchor={hasSegment ? 'end' : 'start'}
+          x={labelAtEnd ? lineEndX - 4 : lineStartX + 4}
+          y={labelBelow ? y + 5 : y - 5}
+          dominantBaseline={labelBelow ? 'hanging' : undefined}
+          textAnchor={labelAtEnd ? 'end' : 'start'}
           fontSize={10}
           fill={color}
           fontWeight={600}

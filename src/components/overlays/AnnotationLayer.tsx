@@ -1256,6 +1256,7 @@ export const createBosLineAnnotation = (
     startTime: options.startTime,
     label: options.label,
     labelHalo: options.labelHalo,
+    labelPlacement: options.labelPlacement,
     confirmed: options.confirmed ?? true,
     color: options.color ?? defaultColor,
     lineStyle: options.lineStyle ?? 'solid',
