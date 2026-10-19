@@ -124,6 +124,8 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
   const lineStyle = annotation.confirmed ? strokeDasharray : LINE_STYLE_MAP.dashed;
   // For unconfirmed, reduce opacity
   const lineOpacity = annotation.strokeOpacity ?? (annotation.confirmed ? 1 : 0.5);
+  // The price badge fades only when the host fades the line; a pending line's badge stays as it always was.
+  const badgeOpacity = annotation.strokeOpacity ?? 1;
 
   return (
     <g 
@@ -189,7 +191,7 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
             width={priceBadge.right - priceBadge.left}
             height={priceBadge.bottom - priceBadge.top}
             fill={color}
-            fillOpacity={0.9 * lineOpacity}
+            fillOpacity={0.9 * badgeOpacity}
             rx={4}
           />
           <text
@@ -199,7 +201,7 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
             textAnchor="middle"
             fontSize={11}
             fill="white"
-            fillOpacity={lineOpacity}
+            fillOpacity={badgeOpacity}
             fontWeight={500}
             style={{ pointerEvents: 'none', userSelect: 'none' }}
           >
