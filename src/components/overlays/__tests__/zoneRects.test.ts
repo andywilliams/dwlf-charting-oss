@@ -52,6 +52,9 @@ describe('a BOS label placed automatically (DWLF-468)', () => {
     // The swing end is at x=-50: both start placements would draw off screen, so the default stands.
     expect(autoPlacement('BOS', 200, -50, 300, [above, below], PANE, true)).toBe('end-above');
     expect(autoPlacement('BOS', 5, 100, 300, [], PANE, true)).toBe('end-below');
+    // The break panned past the right edge, with zones over both swing-end places: on the pane over a zone beats off it.
+    const startZones = [{ left: 0, right: 200, top: 150, bottom: 199 }, { left: 0, right: 200, top: 201, bottom: 260 }];
+    expect(autoPlacement('BOS', 200, 100, 500, startZones, PANE, true)).toBe('start-above');
   });
 
   it('a full-width line only tries its left end, never its right (the price badge is there)', () => {

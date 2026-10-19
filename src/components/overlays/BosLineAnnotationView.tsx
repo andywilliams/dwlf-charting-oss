@@ -47,8 +47,8 @@ export function labelBox(placement: Placement, text: string, y: number, startX: 
 }
 
 /**
- * The first placement whose label box lies inside the pane and is clear of every zone; the line's
- * default (end-above for a segment, start-above for a full-width line) when none is.
+ * The first placement whose label box lies inside the pane and is clear of every zone; else the
+ * first inside the pane; else the line's default (end-above for a segment, start-above for a full-width line).
  */
 export function autoPlacement(
   text: string,
@@ -60,11 +60,13 @@ export function autoPlacement(
   segment: boolean,
 ): Placement {
   const order = AUTO_ORDER[segment ? 'segment' : 'line'];
-  const fits = (b: PixelRect) => b.left >= 0 && b.right <= pane.width && b.top >= 0 && b.bottom <= pane.height;
-  return order.find((p) => {
+  const fits = (p: Placement) => {
     const b = labelBox(p, text, y, startX, endX);
-    return fits(b) && !avoid.some((r) => intersects(b, r));
-  }) ?? order[0];
+    return b.left >= 0 && b.right <= pane.width && b.top >= 0 && b.bottom <= pane.height;
+  };
+  const clear = (p: Placement) => !avoid.some((r) => intersects(labelBox(p, text, y, startX, endX), r));
+  // Clear and on the pane; else at least on the pane (over a zone, the halo keeps it readable); else the default.
+  return order.find((p) => fits(p) && clear(p)) ?? order.find(fits) ?? order[0];
 }
 
 /** Default colors based on direction */
