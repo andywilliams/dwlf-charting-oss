@@ -576,6 +576,11 @@ export interface BosLineAnnotation extends AnnotationBase {
   /** Show type label (BOS/ChoCH, or the custom `label`) */
   showLabel: boolean;
   /**
+   * The line's and its label's strength, 0 to 1 (default 1): e.g. faint for earlier breaks behind the
+   * latest. Multiplies a pending line's own half strength.
+   */
+  opacity?: number;
+  /**
    * A colour to outline the type label in, normally the host's chart background, so the label stays
    * legible over candles and zones (a static chart, such as a printed one, cannot be panned to clear
    * it). Unset: no outline. It is a colour, not a theme lookup, so set it where the annotations are

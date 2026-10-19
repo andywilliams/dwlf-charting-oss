@@ -25,6 +25,12 @@ export interface BosLineAnnotationViewProps {
   compressedTimes?: number[];
   /** The zone boxes drawn on the pane, in pixels: an `auto` label is placed clear of them. */
   avoidRects?: PixelRect[];
+  /**
+   * An `auto` label's placement already worked out by the layer, clear of the zones and of the other
+   * BOS lines and their labels (`resolveBosLabels`). Without it the view resolves `auto` itself
+   * against `avoidRects`.
+   */
+  resolvedPlacement?: Placement;
 }
 
 type Placement = Exclude<NonNullable<BosLineAnnotation['labelPlacement']>, 'auto'>;
@@ -99,6 +105,82 @@ export function autoPlacement(
   return order.find((p) => fits(p) && clear(p)) ?? order.find(fits) ?? order[0];
 }
 
+/** What turns a BOS line's times and price into pane pixels, as the view receives it. */
+export interface BosGeometryContext {
+  xScale: XScale;
+  yScale: PaneComputedScale;
+  chartWidth: number;
+  timeToIndex?: (time: number) => number | undefined;
+  compressedTimes?: number[];
+}
+
+/**
+ * A BOS line's drawn geometry: its y, its ends (a bounded segment from `startTime` to the break, or a
+ * full-width line from the break), its label text, its price badge's box and how far past the badge a
+ * label beside the break end goes. One source for the view and the layer's label resolution.
+ */
+export function bosGeometry(annotation: BosLineAnnotation, ctx: BosGeometryContext) {
+  const y = ctx.yScale.scale(annotation.price);
+  const resolveX = (t: number): number | null => {
+    const xv = findClosestIndex(t, ctx.compressedTimes, ctx.timeToIndex);
+    const px = xv !== undefined ? ctx.xScale(xv) : ctx.xScale(t);
+    return Number.isFinite(px) ? px : null;
+  };
+  const breakX = resolveX(annotation.time) ?? 0;
+  const startXOpt = annotation.startTime != null ? resolveX(annotation.startTime) : null;
+  const hasSegment = startXOpt !== null;
+  const lineStartX = hasSegment ? (startXOpt as number) : breakX;
+  const lineEndX = hasSegment ? breakX : ctx.chartWidth;
+  const priceLabelWidth = Math.max(50, annotation.price.toFixed(2).length * 7 + 16);
+  const badgeLeft = hasSegment ? breakX + 6 : ctx.chartWidth - priceLabelWidth - 8;
+  const priceBadge: PixelRect = { left: badgeLeft, right: badgeLeft + priceLabelWidth, top: y - 10, bottom: y + 10 };
+  // Beside a segment's break, the label goes past the price badge when one is drawn there (measured from the badge as drawn).
+  const besideEndGap = annotation.showPrice && hasSegment ? priceBadge.right + 4 - (lineEndX + 6) : 0;
+  const text = annotation.label ?? (annotation.bosType === 'ChoCH' ? 'ChoCH' : 'BOS');
+  return { y, lineStartX, lineEndX, hasSegment, priceBadge, besideEndGap, text };
+}
+export type BosGeometry = ReturnType<typeof bosGeometry>;
+
+/**
+ * The placement a line's label is drawn at: its fixed one, or for `auto` the first clear of `avoid`
+ * (and of its own price badge when drawn). A full-width line's right end is the chart's edge (and its
+ * badge's), so `end-beside` there is drawn as `start-beside`.
+ */
+export function placementFor(annotation: BosLineAnnotation, g: BosGeometry, avoid: readonly PixelRect[], pane: { width: number; height: number }): Placement {
+  const requested = annotation.labelPlacement ?? (g.hasSegment ? 'end-above' : 'start-above');
+  const asked = requested === 'end-beside' && !g.hasSegment ? 'start-beside' : requested;
+  if (asked !== 'auto') return asked;
+  return autoPlacement(g.text, g.y, g.lineStartX, g.lineEndX, annotation.showPrice ? [...avoid, g.priceBadge] : avoid, pane, g.hasSegment, g.besideEndGap);
+}
+
+/** A BOS line's own drawn segment as a thin box, so another line's label keeps off it. */
+export const bosLineRect = (g: BosGeometry): PixelRect => ({ left: g.lineStartX, right: g.lineEndX, top: g.y - 2, bottom: g.y + 2 });
+
+/**
+ * Every `auto` BOS label on a pane, placed in order (the first annotation gets first choice): each
+ * keeps clear of the zones, of every other BOS line, and of the labels already placed. Returns the
+ * placement by annotation id; a line whose label is hidden or fixed is not in it, though a fixed one's
+ * label still counts as placed.
+ */
+export function resolveBosLabels(
+  lines: readonly BosLineAnnotation[],
+  ctx: BosGeometryContext,
+  zones: readonly PixelRect[],
+  pane: { width: number; height: number },
+): Map<string, Placement> {
+  const geometries = lines.map((a) => ({ a, g: bosGeometry(a, ctx) })).filter(({ g }) => Number.isFinite(g.y));
+  const out = new Map<string, Placement>();
+  const placed: PixelRect[] = [];
+  for (const { a, g } of geometries) {
+    if (!a.showLabel) continue;
+    const others = geometries.filter((o) => o.a.id !== a.id).map((o) => bosLineRect(o.g));
+    const placement = placementFor(a, g, [...zones, ...others, ...placed], pane);
+    if ((a.labelPlacement ?? 'end-above') === 'auto') out.set(a.id, placement);
+    placed.push(labelLayout(placement, g.text, g.y, g.lineStartX, g.lineEndX, g.besideEndGap).box);
+  }
+  return out;
+}
+
 /** Default colors based on direction */
 const DIRECTION_COLORS = {
   bullish: '#22c55e',
@@ -131,6 +213,7 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
   dataLength = 0,
   compressedTimes,
   avoidRects = [],
+  resolvedPlacement,
 }) => {
   const dragStartY = useRef<number>(0);
   const dragStartPrice = useRef<number>(0);
@@ -177,46 +260,17 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
 
   const color = getColor(annotation);
   const strokeDasharray = getLineStyle(annotation);
-  
-  const typeLabelText = annotation.label ?? (annotation.bosType === 'ChoCH' ? 'ChoCH' : 'BOS');
+  const geometry = bosGeometry(annotation, { xScale, yScale, chartWidth, timeToIndex, compressedTimes });
+  const { lineStartX, lineEndX, hasSegment, priceBadge, besideEndGap } = geometry;
   const priceLabelText = annotation.price.toFixed(2);
-
-  const priceLabelWidth = Math.max(50, priceLabelText.length * 7 + 16);
-
-  // Resolve a raw timestamp to a pixel x (respecting compressGaps mode).
-  const resolveX = (t: number): number | null => {
-    const xv = findClosestIndex(t, compressedTimes, timeToIndex);
-    const px = xv !== undefined ? xScale(xv) : xScale(t);
-    return Number.isFinite(px) ? px : null;
-  };
-
-  // When a startTime is supplied the line is a bounded segment (the broken
-  // swing → the break candle, the SMC convention); otherwise it falls back to
-  // the legacy full-width level line extending to the right edge of the chart.
-  const breakX = resolveX(annotation.time) ?? 0;
-  const startXOpt = annotation.startTime != null ? resolveX(annotation.startTime) : null;
-  const hasSegment = startXOpt !== null;
-  const lineStartX = hasSegment ? (startXOpt as number) : breakX;
-  const lineEndX = hasSegment ? breakX : chartWidth;
-  // The price badge's box (drawn below when showPrice): an auto label keeps clear of it as of a zone.
-  const badgeLeft = hasSegment ? breakX + 6 : chartWidth - priceLabelWidth - 8;
-  const priceBadge: PixelRect = { left: badgeLeft, right: badgeLeft + priceLabelWidth, top: y - 10, bottom: y + 10 };
-
-  // A full-width line's right end is the chart's edge (and its badge's), so `end-beside` there is drawn as `start-beside`.
-  const requested = annotation.labelPlacement ?? (hasSegment ? 'end-above' : 'start-above');
-  const asked = requested === 'end-beside' && !hasSegment ? 'start-beside' : requested;
-  // Beside a segment's break, the label goes past the price badge when one is drawn there.
-  // Measured from the badge as drawn, so the label clears it whatever the badge's offset from the break.
-  const besideEndGap = annotation.showPrice && hasSegment ? priceBadge.right + 4 - (lineEndX + 6) : 0;
-  const placement = asked === 'auto'
-    ? autoPlacement(typeLabelText, y, lineStartX, lineEndX, annotation.showPrice ? [...avoidRects, priceBadge] : avoidRects, { width: chartWidth, height: paneHeight }, hasSegment, besideEndGap)
-    : asked;
-  const label = labelLayout(placement, typeLabelText, y, lineStartX, lineEndX, besideEndGap);
+  const placement = resolvedPlacement ?? placementFor(annotation, geometry, avoidRects, { width: chartWidth, height: paneHeight });
+  const label = labelLayout(placement, geometry.text, y, lineStartX, lineEndX, besideEndGap);
+  const typeLabelText = geometry.text;
 
   // For unconfirmed BOS, use dashed style to indicate pending
   const lineStyle = annotation.confirmed ? strokeDasharray : LINE_STYLE_MAP.dashed;
   // For unconfirmed, reduce opacity
-  const lineOpacity = annotation.confirmed ? 1 : 0.5;
+  const lineOpacity = (annotation.confirmed ? 1 : 0.5) * (annotation.opacity ?? 1);
 
   return (
     <g 
