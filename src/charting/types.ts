@@ -576,6 +576,11 @@ export interface BosLineAnnotation extends AnnotationBase {
   /** Show type label (BOS/ChoCH, or the custom `label`) */
   showLabel: boolean;
   /**
+   * The line's and its label's strength, 0 to 1, as order blocks' and gaps' `strokeOpacity`: set, it
+   * replaces the default (1, or 0.5 for a pending line); e.g. faint for earlier breaks behind the latest.
+   */
+  strokeOpacity?: number;
+  /**
    * A colour to outline the type label in, normally the host's chart background, so the label stays
    * legible over candles and zones (a static chart, such as a printed one, cannot be panned to clear
    * it). Unset: no outline. It is a colour, not a theme lookup, so set it where the annotations are
@@ -595,8 +600,10 @@ export interface BosLineAnnotation extends AnnotationBase {
    * rule, so a release may move a saved `auto` label to a better place. Older releases: 1.17.0 draws
    * `start-beside` at start-above and `end-beside` at end-above; releases before 1.17.0 ignore the
    * field and draw the line's default. A view rendered directly is given the boxes as `avoidRects`
-   * (`orderBlockRect`, `fairValueGapRect`). Default: `end-above` for a bounded segment, `start-above`
-   * for a full-width line.
+   * (`orderBlockRect`, `fairValueGapRect`). On a pane, every `auto` label also keeps clear of the other
+   * BOS lines and of the labels already placed, in the order the annotations are given: the first gets
+   * first choice, so a host lists the break that matters most first (`resolveBosLabels`). Default:
+   * `end-above` for a bounded segment, `start-above` for a full-width line.
    */
   labelPlacement?: 'auto' | 'end-above' | 'end-below' | 'start-above' | 'start-below' | 'start-beside' | 'end-beside';
 }

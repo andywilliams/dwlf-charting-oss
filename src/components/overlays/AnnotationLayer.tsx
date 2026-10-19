@@ -47,6 +47,7 @@ import OrderBlockAnnotationView from './OrderBlockAnnotationView';
 import FairValueGapAnnotationView from './FairValueGapAnnotationView';
 import BosLineAnnotationView from './BosLineAnnotationView';
 import { fairValueGapRect, orderBlockRect } from './zoneRects';
+import { resolveBosLabels } from './bosLabels';
 import PositionAnnotationView from './PositionAnnotationView';
 
 export interface AnnotationLayerProps {
@@ -263,6 +264,17 @@ const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
     });
   }, [visibleAnnotations, xScale, yScale, chartWidth, timeToIndex, indexToTime, dataLength, compressedTimes]);
 
+  // Every auto BOS label on the pane, placed in order so labels keep clear of each other as of the zones.
+  const bosLabels = useMemo(
+    () => resolveBosLabels(
+      visibleAnnotations.filter((a): a is BosLineAnnotation => a.type === 'bos_line'),
+      { xScale, yScale, chartWidth, timeToIndex, compressedTimes },
+      zoneRects,
+      { width: chartWidth, height: paneHeight },
+    ),
+    [visibleAnnotations, xScale, yScale, chartWidth, paneHeight, timeToIndex, compressedTimes, zoneRects],
+  );
+
   return (
     <g className="annotation-layer" style={layerStyle} onMouseDown={stopMouseDown}>
       {/* Render all annotations in sorted order so selected is always on top */}
@@ -383,6 +395,7 @@ const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
               dataLength={dataLength}
               compressedTimes={compressedTimes}
               avoidRects={zoneRects}
+              resolvedPlacement={bosLabels.get(annotation.id)}
             />
           );
         }
@@ -1268,6 +1281,7 @@ export const createBosLineAnnotation = (
     label: options.label,
     labelHalo: options.labelHalo,
     labelPlacement: options.labelPlacement,
+    strokeOpacity: options.strokeOpacity,
     confirmed: options.confirmed ?? true,
     color: options.color ?? defaultColor,
     lineStyle: options.lineStyle ?? 'solid',

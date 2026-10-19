@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createFairValueGapAnnotation, createOrderBlockAnnotation } from '../AnnotationLayer';
-import { autoPlacement, labelBox } from '../BosLineAnnotationView';
+import { autoPlacement, labelBox } from '../bosLabels';
 import { fairValueGapRect, intersects, orderBlockRect } from '../zoneRects';
 
 // x = time / 10; y = 300 - price (so a higher price is higher on screen).
