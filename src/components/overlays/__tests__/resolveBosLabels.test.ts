@@ -38,15 +38,29 @@ describe('resolveBosLabels (DWLF-472)', () => {
     const short = line('short', 2500, 3000, 100);
     const long = line('long', 1000, 3500, 108, { showLabel: false });
     const placed = resolveBosLabels([short, long], ctx, [], PANE);
-    expect(placed.get('short')).not.toBe('end-above');
+    expect(placed.get('short')).toBe('end-below');
     expect(placed.has('long')).toBe(false);
   });
 
-  it('counts a fixed placement\'s label as placed, and leaves it as asked', () => {
+  it('places a fixed label first, wherever it is listed, and leaves it as asked', () => {
     const fixed = line('fixed', 1000, 3000, 100, { labelPlacement: 'end-above' });
     const auto = line('auto', 1500, 3000, 104);
-    const placed = resolveBosLabels([fixed, auto], ctx, [], PANE);
-    expect(placed.has('fixed')).toBe(false);
-    expect(placed.get('auto')).not.toBe('end-above');
+    for (const order of [[fixed, auto], [auto, fixed]]) {
+      const placed = resolveBosLabels(order, ctx, [], PANE);
+      expect(placed.has('fixed')).toBe(false);
+      // end-above hits the fixed label, end-below the fixed line: the swing end above is clear.
+      expect(placed.get('auto')).toBe('start-above');
+    }
+  });
+
+  it('keeps a label off another line\'s price badge', () => {
+    // A line breaking at x=260 (clear of the other's label) whose badge, at 266..324 on its own level, is not.
+    const badged = line('badged', 2000, 2600, 112, { showPrice: true, showLabel: false });
+    const plain = line('plain', 1500, 3000, 100);
+    const withBadge = resolveBosLabels([plain, badged], ctx, [], PANE).get('plain');
+    const withoutBadge = resolveBosLabels([plain, { ...badged, showPrice: false }], ctx, [], PANE).get('plain');
+    expect(withoutBadge).toBe('end-above');
+    expect(withBadge).not.toBe('end-above');
+    expect(withBadge).toBeDefined();
   });
 });

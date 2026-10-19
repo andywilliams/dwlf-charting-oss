@@ -189,7 +189,7 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
             width={priceBadge.right - priceBadge.left}
             height={priceBadge.bottom - priceBadge.top}
             fill={color}
-            fillOpacity={0.9}
+            fillOpacity={0.9 * lineOpacity}
             rx={4}
           />
           <text
@@ -199,6 +199,7 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
             textAnchor="middle"
             fontSize={11}
             fill="white"
+            fillOpacity={lineOpacity}
             fontWeight={500}
             style={{ pointerEvents: 'none', userSelect: 'none' }}
           >

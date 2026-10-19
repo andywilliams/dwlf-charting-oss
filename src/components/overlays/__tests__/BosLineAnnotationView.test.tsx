@@ -139,6 +139,9 @@ describe('BosLineAnnotationView strokeOpacity (DWLF-472)', () => {
     expect(faint.match(/<text[^>]*>BOS<\/text>/)![0]).toContain('opacity="0.4"');
     const pending = renderToStaticMarkup(<svg><BosLineAnnotationView annotation={createBosLineAnnotation('X', '1d', 2000, 100, 'BOS', 'bearish', { startTime: 1000, showPrice: false, strokeOpacity: 0.4, confirmed: false })} xScale={((t: number) => t / 10) as never} yScale={{ domain: [0, 200], scale: () => 150, invert: (v: number) => v }} chartWidth={400} paneHeight={300} /></svg>);
     expect(pending.match(/<text[^>]*>BOS<\/text>/)![0]).toContain('opacity="0.4"');
+    // A faint line's price badge fades with it.
+    const badged = renderToStaticMarkup(<svg><BosLineAnnotationView annotation={createBosLineAnnotation('X', '1d', 2000, 100, 'BOS', 'bearish', { startTime: 1000, strokeOpacity: 0.5 })} xScale={((t: number) => t / 10) as never} yScale={{ domain: [0, 200], scale: () => 150, invert: (v: number) => v }} chartWidth={400} paneHeight={300} /></svg>);
+    expect(badged).toContain('fill-opacity="0.45"');
   });
 
   it('draws a resolved placement the layer gives it', () => {

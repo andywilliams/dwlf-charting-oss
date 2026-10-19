@@ -135,9 +135,9 @@ export const bosLineRect = (g: BosGeometry): PixelRect => ({ left: g.lineStartX,
 
 /**
  * Every `auto` BOS label on a pane, placed in order (the first annotation gets first choice): each
- * keeps clear of the zones, of every other BOS line, and of the labels already placed. Returns the
- * placement by annotation id; a line whose label is hidden or fixed is not in it, though a fixed one's
- * label still counts as placed.
+ * keeps clear of the zones, of every other BOS line and its price badge, of every fixed label (placed
+ * first, wherever listed, since it cannot move) and of the auto labels already placed. Returns the
+ * placement by annotation id; a line whose label is hidden or fixed is not in it.
  */
 export function resolveBosLabels(
   lines: readonly BosLineAnnotation[],
@@ -146,13 +146,19 @@ export function resolveBosLabels(
   pane: { width: number; height: number },
 ): Map<string, Placement> {
   const geometries = lines.map((a) => ({ a, g: bosGeometry(a, ctx) })).filter(({ g }) => Number.isFinite(g.y));
+  const isAuto = (a: BosLineAnnotation) => (a.labelPlacement ?? 'end-above') === 'auto';
+  // A fixed label cannot move, so it is placed before any auto one, wherever it is listed.
+  const fixed = geometries
+    .filter(({ a }) => a.showLabel && !isAuto(a))
+    .map(({ a, g }) => labelLayout(placementFor(a, g, [], pane), g.text, g.y, g.lineStartX, g.lineEndX, g.besideEndGap).box);
+  // Every other line's segment and price badge (when drawn) is an obstacle to a label.
+  const obstacles = (id: string) => geometries.filter((o) => o.a.id !== id).flatMap((o) => (o.a.showPrice ? [bosLineRect(o.g), o.g.priceBadge] : [bosLineRect(o.g)]));
   const out = new Map<string, Placement>();
-  const placed: PixelRect[] = [];
+  const placed: PixelRect[] = [...fixed];
   for (const { a, g } of geometries) {
-    if (!a.showLabel) continue;
-    const others = geometries.filter((o) => o.a.id !== a.id).map((o) => bosLineRect(o.g));
-    const placement = placementFor(a, g, [...zones, ...others, ...placed], pane);
-    if ((a.labelPlacement ?? 'end-above') === 'auto') out.set(a.id, placement);
+    if (!a.showLabel || !isAuto(a)) continue;
+    const placement = placementFor(a, g, [...zones, ...obstacles(a.id), ...placed], pane);
+    out.set(a.id, placement);
     placed.push(labelLayout(placement, g.text, g.y, g.lineStartX, g.lineEndX, g.besideEndGap).box);
   }
   return out;
