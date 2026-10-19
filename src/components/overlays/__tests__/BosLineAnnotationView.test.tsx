@@ -90,3 +90,27 @@ describe('BosLineAnnotationView auto label', () => {
     expect(text).toContain('dominant-baseline="hanging"');
   });
 });
+
+describe('BosLineAnnotationView auto label and its own price badge', () => {
+  const render = (showPrice: boolean) => {
+    const annotation = createBosLineAnnotation('XAU/USD', '1d', 2000, 100, 'BOS', 'bearish', { startTime: 1000, showPrice, labelPlacement: 'auto' });
+    const markup = renderToStaticMarkup(
+      <svg>
+        <BosLineAnnotationView
+          annotation={annotation}
+          xScale={((t: number) => t / 10) as never}
+          yScale={{ domain: [0, 200], scale: () => 150, invert: (v: number) => v }}
+          chartWidth={400}
+          paneHeight={300}
+          avoidRects={[{ left: 0, right: 200, top: 0, bottom: 300 }]}
+        />
+      </svg>,
+    );
+    return markup.match(/<text[^>]*>BOS<\/text>/)![0];
+  };
+
+  it('goes beside the break when every place inside the line is taken, but not onto its own price badge', () => {
+    expect(render(false)).toContain('x="206"');
+    expect(render(true)).not.toContain('x="206"');
+  });
+});

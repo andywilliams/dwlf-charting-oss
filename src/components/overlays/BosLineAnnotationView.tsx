@@ -42,22 +42,41 @@ const LABEL_HEIGHT = 12;
 const BESIDE_HEIGHT = 10;
 const labelWidth = (text: string) => text.length * 6.5 + 4;
 
-/** The label box for a placement, in pixels, as the <text> below draws it. */
-export function labelBox(placement: Placement, text: string, y: number, startX: number, endX: number): PixelRect {
+/**
+ * Where the <text> is drawn for a placement, and the box it occupies: one source for both, so the box
+ * the collision check uses is the one the label is drawn in. Inside an end the label reads inward
+ * along the line (above it on the baseline, below it hanging); beside an end it reads outward, centred
+ * on the line.
+ */
+export function labelLayout(placement: Placement, text: string, y: number, startX: number, endX: number) {
   const w = labelWidth(text);
   const atEnd = placement.startsWith('end');
   if (placement.endsWith('beside')) {
-    const left = atEnd ? endX + 6 : startX - 6 - w;
-    return { left, right: left + w, top: y - BESIDE_HEIGHT / 2, bottom: y + BESIDE_HEIGHT / 2 };
+    const x = atEnd ? endX + 6 : startX - 6;
+    const left = atEnd ? x : x - w;
+    return {
+      x, y, anchor: (atEnd ? 'start' : 'end') as 'start' | 'end', baseline: 'central' as const,
+      box: { left, right: left + w, top: y - BESIDE_HEIGHT / 2, bottom: y + BESIDE_HEIGHT / 2 },
+    };
   }
-  const left = atEnd ? endX - 4 - w : startX + 4;
-  const top = placement.endsWith('below') ? y + 3 : y - 3 - LABEL_HEIGHT;
-  return { left, right: left + w, top, bottom: top + LABEL_HEIGHT };
+  const below = placement.endsWith('below');
+  const x = atEnd ? endX - 4 : startX + 4;
+  const left = atEnd ? x - w : x;
+  const top = below ? y + 3 : y - 3 - LABEL_HEIGHT;
+  return {
+    x, y: below ? y + 5 : y - 5, anchor: (atEnd ? 'end' : 'start') as 'start' | 'end', baseline: below ? ('hanging' as const) : undefined,
+    box: { left, right: left + w, top, bottom: top + LABEL_HEIGHT },
+  };
 }
 
+/** The label box for a placement, in pixels: the box `labelLayout` draws the label in. */
+export const labelBox = (placement: Placement, text: string, y: number, startX: number, endX: number): PixelRect =>
+  labelLayout(placement, text, y, startX, endX).box;
+
 /**
- * The first placement whose label box lies inside the pane and is clear of every zone; else the
- * first inside the pane; else the line's default (end-above for a segment, start-above for a full-width line).
+ * The first placement whose label box lies inside the pane and is clear of every box to avoid (the
+ * zones, and the line's own price badge when drawn); else the first inside the pane; else the line's
+ * default (end-above for a segment, start-above for a full-width line).
  */
 export function autoPlacement(
   text: string,
@@ -67,9 +86,8 @@ export function autoPlacement(
   avoid: readonly PixelRect[],
   pane: { width: number; height: number },
   segment: boolean,
-  priceBadge = false,
 ): Placement {
-  const order = AUTO_ORDER[segment ? 'segment' : 'line'].filter((p) => !(priceBadge && p === 'end-beside'));
+  const order = AUTO_ORDER[segment ? 'segment' : 'line'];
   const fits = (p: Placement) => {
     const b = labelBox(p, text, y, startX, endX);
     return b.left >= 0 && b.right <= pane.width && b.top >= 0 && b.bottom <= pane.height;
@@ -178,14 +196,15 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
   const hasSegment = startXOpt !== null;
   const lineStartX = hasSegment ? (startXOpt as number) : breakX;
   const lineEndX = hasSegment ? breakX : chartWidth;
+  // The price badge's box (drawn below when showPrice): an auto label keeps clear of it as of a zone.
+  const badgeLeft = hasSegment ? breakX + 6 : chartWidth - priceLabelWidth - 8;
+  const priceBadge: PixelRect = { left: badgeLeft, right: badgeLeft + priceLabelWidth, top: y - 10, bottom: y + 10 };
 
   const asked = annotation.labelPlacement ?? (hasSegment ? 'end-above' : 'start-above');
   const placement = asked === 'auto'
-    ? autoPlacement(typeLabelText, y, lineStartX, lineEndX, avoidRects, { width: chartWidth, height: paneHeight }, hasSegment, annotation.showPrice)
+    ? autoPlacement(typeLabelText, y, lineStartX, lineEndX, annotation.showPrice ? [...avoidRects, priceBadge] : avoidRects, { width: chartWidth, height: paneHeight }, hasSegment)
     : asked;
-  const labelAtEnd = placement.startsWith('end');
-  const labelBelow = placement.endsWith('below');
-  const labelBeside = placement.endsWith('beside');
+  const label = labelLayout(placement, typeLabelText, y, lineStartX, lineEndX);
 
   // For unconfirmed BOS, use dashed style to indicate pending
   const lineStyle = annotation.confirmed ? strokeDasharray : LINE_STYLE_MAP.dashed;
@@ -229,11 +248,10 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
           placement asked for (default: above it, at the break end of a segment). */}
       {annotation.showLabel && (
         <text
-          x={labelBeside ? (labelAtEnd ? lineEndX + 6 : lineStartX - 6) : labelAtEnd ? lineEndX - 4 : lineStartX + 4}
-          y={labelBeside ? y : labelBelow ? y + 5 : y - 5}
-          dominantBaseline={labelBeside ? 'central' : labelBelow ? 'hanging' : undefined}
-          // Inside an end, the label reads inward along the line; beside one, outward from it.
-          textAnchor={labelAtEnd !== labelBeside ? 'end' : 'start'}
+          x={label.x}
+          y={label.y}
+          dominantBaseline={label.baseline}
+          textAnchor={label.anchor}
           fontSize={10}
           fill={color}
           fontWeight={600}
