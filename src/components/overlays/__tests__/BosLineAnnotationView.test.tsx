@@ -109,8 +109,25 @@ describe('BosLineAnnotationView auto label and its own price badge', () => {
     return markup.match(/<text[^>]*>BOS<\/text>/)![0];
   };
 
-  it('goes beside the break when every place inside the line is taken, but not onto its own price badge', () => {
+  it('goes beside the break when every place inside the line is taken, past its own price badge when one is drawn', () => {
     expect(render(false)).toContain('x="206"');
-    expect(render(true)).not.toContain('x="206"');
+    // The badge for "100.00" is 58px wide (7px a character plus 16), so the label sits past it with 4px of air.
+    const withBadge = render(true);
+    expect(withBadge).toContain('x="268"');
+    expect(withBadge).toContain('text-anchor="start"');
+  });
+});
+
+describe('BosLineAnnotationView end-beside on a full-width line', () => {
+  it('is drawn as start-beside, since the line\'s right end is the chart\'s edge', () => {
+    const annotation = createBosLineAnnotation('XAU/USD', '1d', 2000, 100, 'BOS', 'bearish', { showPrice: false, labelPlacement: 'end-beside' });
+    const markup = renderToStaticMarkup(
+      <svg>
+        <BosLineAnnotationView annotation={annotation} xScale={((t: number) => t / 10) as never} yScale={{ domain: [0, 200], scale: () => 150, invert: (v: number) => v }} chartWidth={400} paneHeight={300} />
+      </svg>,
+    );
+    const text = markup.match(/<text[^>]*>BOS<\/text>/)![0];
+    expect(text).toContain('x="194"');
+    expect(text).toContain('text-anchor="end"');
   });
 });

@@ -59,6 +59,11 @@ describe('a BOS label placed automatically (DWLF-468)', () => {
     expect(autoPlacement('BOS', 200, 100, 500, startZones, PANE, true)).toBe('start-above');
   });
 
+  it('a full-width line goes beside its left end when both sides there are taken', () => {
+    const zones = [{ left: 100, right: 400, top: 150, bottom: 199 }, { left: 100, right: 400, top: 201, bottom: 260 }];
+    expect(autoPlacement('BOS', 200, 100, 400, zones, PANE, false)).toBe('start-beside');
+  });
+
   it('a full-width line only tries its left end, never its right (the price badge is there)', () => {
     expect(autoPlacement('BOS', 200, 0, 400, [], PANE, false)).toBe('start-above');
     expect(autoPlacement('BOS', 200, 0, 400, [{ left: 0, right: 100, top: 150, bottom: 195 }], PANE, false)).toBe('start-below');

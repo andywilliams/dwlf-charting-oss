@@ -48,11 +48,12 @@ const labelWidth = (text: string) => text.length * 6.5 + 4;
  * along the line (above it on the baseline, below it hanging); beside an end it reads outward, centred
  * on the line.
  */
-export function labelLayout(placement: Placement, text: string, y: number, startX: number, endX: number) {
+export function labelLayout(placement: Placement, text: string, y: number, startX: number, endX: number, besideEndGap = 0) {
   const w = labelWidth(text);
   const atEnd = placement.startsWith('end');
   if (placement.endsWith('beside')) {
-    const x = atEnd ? endX + 6 : startX - 6;
+    // Beside the break end, past the price badge when one is drawn there (besideEndGap: its width and air).
+    const x = atEnd ? endX + 6 + besideEndGap : startX - 6;
     const left = atEnd ? x : x - w;
     return {
       x, y, anchor: (atEnd ? 'start' : 'end') as 'start' | 'end', baseline: 'central' as const,
@@ -70,8 +71,8 @@ export function labelLayout(placement: Placement, text: string, y: number, start
 }
 
 /** The label box for a placement, in pixels: the box `labelLayout` draws the label in. */
-export const labelBox = (placement: Placement, text: string, y: number, startX: number, endX: number): PixelRect =>
-  labelLayout(placement, text, y, startX, endX).box;
+export const labelBox = (placement: Placement, text: string, y: number, startX: number, endX: number, besideEndGap = 0): PixelRect =>
+  labelLayout(placement, text, y, startX, endX, besideEndGap).box;
 
 /**
  * The first placement whose label box lies inside the pane and is clear of every box to avoid (the
@@ -86,13 +87,14 @@ export function autoPlacement(
   avoid: readonly PixelRect[],
   pane: { width: number; height: number },
   segment: boolean,
+  besideEndGap = 0,
 ): Placement {
   const order = AUTO_ORDER[segment ? 'segment' : 'line'];
   const fits = (p: Placement) => {
-    const b = labelBox(p, text, y, startX, endX);
+    const b = labelBox(p, text, y, startX, endX, besideEndGap);
     return b.left >= 0 && b.right <= pane.width && b.top >= 0 && b.bottom <= pane.height;
   };
-  const clear = (p: Placement) => !avoid.some((r) => intersects(labelBox(p, text, y, startX, endX), r));
+  const clear = (p: Placement) => !avoid.some((r) => intersects(labelBox(p, text, y, startX, endX, besideEndGap), r));
   // Clear and on the pane; else at least on the pane (over a zone, the halo keeps it readable); else the default.
   return order.find((p) => fits(p) && clear(p)) ?? order.find(fits) ?? order[0];
 }
@@ -200,11 +202,14 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
   const badgeLeft = hasSegment ? breakX + 6 : chartWidth - priceLabelWidth - 8;
   const priceBadge: PixelRect = { left: badgeLeft, right: badgeLeft + priceLabelWidth, top: y - 10, bottom: y + 10 };
 
-  const asked = annotation.labelPlacement ?? (hasSegment ? 'end-above' : 'start-above');
+  // A full-width line's right end is the chart's edge (and its badge's), so `end-beside` there is drawn as `start-beside`.
+  const asked = annotation.labelPlacement === 'end-beside' && !hasSegment ? 'start-beside' : annotation.labelPlacement ?? (hasSegment ? 'end-above' : 'start-above');
+  // Beside a segment's break, the label goes past the price badge when one is drawn there.
+  const besideEndGap = annotation.showPrice && hasSegment ? priceLabelWidth + 4 : 0;
   const placement = asked === 'auto'
-    ? autoPlacement(typeLabelText, y, lineStartX, lineEndX, annotation.showPrice ? [...avoidRects, priceBadge] : avoidRects, { width: chartWidth, height: paneHeight }, hasSegment)
+    ? autoPlacement(typeLabelText, y, lineStartX, lineEndX, annotation.showPrice ? [...avoidRects, priceBadge] : avoidRects, { width: chartWidth, height: paneHeight }, hasSegment, besideEndGap)
     : asked;
-  const label = labelLayout(placement, typeLabelText, y, lineStartX, lineEndX);
+  const label = labelLayout(placement, typeLabelText, y, lineStartX, lineEndX, besideEndGap);
 
   // For unconfirmed BOS, use dashed style to indicate pending
   const lineStyle = annotation.confirmed ? strokeDasharray : LINE_STYLE_MAP.dashed;
@@ -270,16 +275,16 @@ const BosLineAnnotationView: React.FC<BosLineAnnotationViewProps> = ({
       {annotation.showPrice && (
         <g>
           <rect
-            x={hasSegment ? breakX + 6 : chartWidth - priceLabelWidth - 8}
-            y={y - 10}
-            width={priceLabelWidth}
-            height={20}
+            x={priceBadge.left}
+            y={priceBadge.top}
+            width={priceBadge.right - priceBadge.left}
+            height={priceBadge.bottom - priceBadge.top}
             fill={color}
             fillOpacity={0.9}
             rx={4}
           />
           <text
-            x={hasSegment ? breakX + 6 + priceLabelWidth / 2 : chartWidth - priceLabelWidth / 2 - 8}
+            x={(priceBadge.left + priceBadge.right) / 2}
             y={y}
             dy="0.35em"
             textAnchor="middle"
