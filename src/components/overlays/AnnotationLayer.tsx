@@ -46,6 +46,7 @@ import FibExtensionAnnotationView from './FibExtensionAnnotationView';
 import OrderBlockAnnotationView from './OrderBlockAnnotationView';
 import FairValueGapAnnotationView from './FairValueGapAnnotationView';
 import BosLineAnnotationView from './BosLineAnnotationView';
+import { fairValueGapRect, orderBlockRect } from './zoneRects';
 import PositionAnnotationView from './PositionAnnotationView';
 
 export interface AnnotationLayerProps {
@@ -253,6 +254,15 @@ const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
     e.stopPropagation();
   }, []);
 
+  // The zone boxes a BOS line's `auto` label keeps clear of, by the zone views' own geometry.
+  const zoneRects = useMemo(() => {
+    const ctx = { xScale, yScale, chartWidth, timeToIndex, indexToTime, dataLength, compressedTimes };
+    return visibleAnnotations.flatMap((a) => {
+      const rect = a.type === 'order_block' ? orderBlockRect(a as OrderBlockAnnotation, ctx) : a.type === 'fair_value_gap' ? fairValueGapRect(a as FairValueGapAnnotation, ctx) : null;
+      return rect ? [rect] : [];
+    });
+  }, [visibleAnnotations, xScale, yScale, chartWidth, timeToIndex, indexToTime, dataLength, compressedTimes]);
+
   return (
     <g className="annotation-layer" style={layerStyle} onMouseDown={stopMouseDown}>
       {/* Render all annotations in sorted order so selected is always on top */}
@@ -372,6 +382,7 @@ const AnnotationLayer: React.FC<AnnotationLayerProps> = ({
               timeToIndex={timeToIndex}
               dataLength={dataLength}
               compressedTimes={compressedTimes}
+              avoidRects={zoneRects}
             />
           );
         }
@@ -1256,6 +1267,7 @@ export const createBosLineAnnotation = (
     startTime: options.startTime,
     label: options.label,
     labelHalo: options.labelHalo,
+    labelPlacement: options.labelPlacement,
     confirmed: options.confirmed ?? true,
     color: options.color ?? defaultColor,
     lineStyle: options.lineStyle ?? 'solid',

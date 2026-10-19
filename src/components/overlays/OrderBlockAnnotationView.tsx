@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import type { OrderBlockAnnotation, PaneComputedScale, XScale } from '../../charting/types';
-import { findClosestIndex, LINE_STYLE_MAP, screenToTimeDelta as screenToTimeDeltaFor } from './annotationUtils';
+import { LINE_STYLE_MAP, screenToTimeDelta as screenToTimeDeltaFor } from './annotationUtils';
+import { orderBlockRect } from './zoneRects';
 import useAnnotationDrag from './useAnnotationDrag';
 import { RECT_HIT_PADDING } from './annotationConstants';
 
@@ -136,37 +137,13 @@ const OrderBlockAnnotationView: React.FC<OrderBlockAnnotationViewProps> = ({
     onDragMove: handleDragMove,
   });
 
-  // Get x position - use closest-index fallback for compressGaps mode
-  const getXValue = (time: number): number | undefined => {
-    if (timeToIndex && indexToTime && dataLength > 0) {
-      return findClosestIndex(time, compressedTimes, timeToIndex);
-    }
-    if (timeToIndex) return timeToIndex(time);
-    return undefined;
-  };
 
-  const xValue = getXValue(annotation.time);
-  const x = xScale(xValue ?? annotation.time);
-
-  // Get y positions (note: high is visually higher, so lower y value)
-  const yHigh = yScale.scale(annotation.high);
-  const yLow = yScale.scale(annotation.low);
-
-  if ([x, yHigh, yLow].some(v => !Number.isFinite(v))) return null;
-
-  const left = x - 20; // start just before the order-block candle
-  // Extend to endTime when provided (active → live edge, ghost → fill point);
-  // otherwise keep the legacy narrow box. Clamp to the visible right edge.
-  let right = x + 20;
-  if (annotation.endTime != null) {
-    const endXValue = getXValue(annotation.endTime);
-    const endX = xScale(endXValue ?? annotation.endTime);
-    if (Number.isFinite(endX)) {
-      right = Math.max(left + 6, Math.min(endX, chartWidth));
-    }
-  }
-  const top = Math.min(yHigh, yLow);
-  const bottom = Math.max(yHigh, yLow);
+  // The box: from just before the order-block candle to endTime when provided (active → live edge,
+  // ghost → fill point), else the legacy narrow box; clamped to the visible right edge. Shared with
+  // the layer, which keeps a BOS line's label clear of it (zoneRects).
+  const rect = orderBlockRect(annotation, { xScale, yScale, chartWidth, timeToIndex, indexToTime, dataLength, compressedTimes });
+  if (!rect) return null;
+  const { left, right, top, bottom } = rect;
   const rectWidth = right - left;
   const rectHeight = bottom - top;
 

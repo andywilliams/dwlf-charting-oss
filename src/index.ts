@@ -132,3 +132,5 @@ export { default as FairValueGapAnnotationView } from './components/overlays/Fai
 export type { FairValueGapAnnotationViewProps } from './components/overlays/FairValueGapAnnotationView';
 export { default as BosLineAnnotationView } from './components/overlays/BosLineAnnotationView';
 export type { BosLineAnnotationViewProps } from './components/overlays/BosLineAnnotationView';
+export { fairValueGapRect, orderBlockRect } from './components/overlays/zoneRects';
+export type { PixelRect, ZoneGeometryContext } from './components/overlays/zoneRects';
