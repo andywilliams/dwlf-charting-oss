@@ -68,6 +68,16 @@ describe('TimeRangeAnnotationView hatch guards', () => {
 });
 
 describe('TimeRangeAnnotationView label', () => {
+  it('starts a text label at the plot\'s left edge when the band began before it', () => {
+    expect(drawWith({ label: 'LOW', labelStyle: 'text' }, -500, 1500).match(/<text[^>]*>/)![0]).toContain('x="6"');
+  });
+
+  it('falls back to the default size and row for saved values it cannot use', () => {
+    for (const bad of [{ labelFontSize: Number.NaN }, { labelFontSize: 0 }, { labelRow: -1 }, { labelRow: 1.5 }, { labelRow: Number.NaN }]) {
+      expect(drawWith({ label: 'LOW', labelStyle: 'text', ...bad }).match(/<text[^>]*>/)![0]).toContain('y="17"');
+    }
+  });
+
   it('draws no text label for a band that starts past the plot\'s right edge', () => {
     const markup = drawWith({ label: 'HIGH WINDOW', labelStyle: 'text' }, 4100, 4400);
     expect(markup).not.toContain('HIGH WINDOW');

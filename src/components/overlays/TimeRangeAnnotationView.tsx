@@ -213,14 +213,17 @@ const TimeRangeAnnotationView: React.FC<TimeRangeAnnotationViewProps> = ({
   // One pattern per annotation id. Every character outside [A-Za-z0-9_], the dash included, is escaped to
   // its code, so two different ids never become the same pattern id.
   const patternId = `timerange-hatch-${annotation.id.replace(/[^A-Za-z0-9_]/g, (c) => `-${c.charCodeAt(0).toString(16)}-`)}`;
-  const labelFontSize = annotation.labelFontSize ?? 11;
-  const labelRow = annotation.labelRow ?? 0;
-  // A text label runs right from the band's left edge, unless that would take it past the plot's right
-  // edge (a band near "now"): then it ends at the edge. A band that starts past the plot's right edge has
-  // no label in view. Width is estimated (~0.62em a character, plus letter-spacing), since a static render
+  // Saved label geometry is checked as the spacing is: a size that is not a positive number, or a row that is
+  // not a whole number from 0, falls back to the default rather than drawing the label out of view.
+  const labelFontSize = Number.isFinite(annotation.labelFontSize) && annotation.labelFontSize! > 0 ? annotation.labelFontSize! : 11;
+  const labelRow = Number.isInteger(annotation.labelRow) && annotation.labelRow! >= 0 ? annotation.labelRow! : 0;
+  // A text label runs right from the band's left edge, or from the plot's left edge when the band began
+  // before it, unless that would take it past the plot's right edge (a band near "now"): then it ends at
+  // the edge. A band that starts past the plot's right edge has no label in view. Width is estimated (~0.62em a character, plus letter-spacing), since a static render
   // cannot measure text.
   const labelWidth = (annotation.label?.length ?? 0) * labelFontSize * 0.7;
-  const labelFitsRight = left + 6 + labelWidth <= chartWidth - 6;
+  const labelStart = Math.max(left, 0) + 6;
+  const labelFitsRight = labelStart + labelWidth <= chartWidth - 6;
   const labelInView = left < chartWidth - 6;
 
   return (
@@ -301,7 +304,7 @@ const TimeRangeAnnotationView: React.FC<TimeRangeAnnotationViewProps> = ({
       {/* Label at top-left of band: a quiet text label, or the default badge */}
       {annotation.label && annotation.labelStyle === 'text' && labelInView && (
         <text
-          x={labelFitsRight ? left + 6 : chartWidth - 6}
+          x={labelFitsRight ? labelStart : chartWidth - 6}
           y={6 + labelFontSize + labelRow * (labelFontSize + 6)}
           textAnchor={labelFitsRight ? 'start' : 'end'}
           fontSize={labelFontSize}
