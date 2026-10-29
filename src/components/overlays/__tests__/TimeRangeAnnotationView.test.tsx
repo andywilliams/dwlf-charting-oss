@@ -78,6 +78,10 @@ describe('TimeRangeAnnotationView label', () => {
     }
   });
 
+  it('draws no text label for a band that ends before the plot\'s left edge', () => {
+    expect(drawWith({ label: 'LOW WINDOW', labelStyle: 'text' }, -400, -100)).not.toContain('LOW WINDOW');
+  });
+
   it('draws no text label for a band that starts past the plot\'s right edge', () => {
     const markup = drawWith({ label: 'HIGH WINDOW', labelStyle: 'text' }, 4100, 4400);
     expect(markup).not.toContain('HIGH WINDOW');

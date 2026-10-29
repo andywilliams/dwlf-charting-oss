@@ -219,12 +219,13 @@ const TimeRangeAnnotationView: React.FC<TimeRangeAnnotationViewProps> = ({
   const labelRow = Number.isInteger(annotation.labelRow) && annotation.labelRow! >= 0 ? annotation.labelRow! : 0;
   // A text label runs right from the band's left edge, or from the plot's left edge when the band began
   // before it, unless that would take it past the plot's right edge (a band near "now"): then it ends at
-  // the edge. A band that starts past the plot's right edge has no label in view. Width is estimated (~0.62em a character, plus letter-spacing), since a static render
+  // the edge. A band with no part inside the plot (it starts past the right edge or ends before the left)
+  // has no label in view. Width is estimated (~0.62em a character, plus letter-spacing), since a static render
   // cannot measure text.
   const labelWidth = (annotation.label?.length ?? 0) * labelFontSize * 0.7;
   const labelStart = Math.max(left, 0) + 6;
   const labelFitsRight = labelStart + labelWidth <= chartWidth - 6;
-  const labelInView = left < chartWidth - 6;
+  const labelInView = left < chartWidth - 6 && right > 0;
 
   return (
     <g
