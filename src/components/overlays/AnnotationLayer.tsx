@@ -931,6 +931,9 @@ export const createTimeRangeAnnotation = (
 ): TimeRangeAnnotation => {
   const now = Date.now();
   return {
+    // Every option the caller gave first (as the order block and gap factories, DWLF-461), then the identity
+    // fields and the defaults, so an option is never dropped and never overrides an identity field.
+    ...options,
     id: `timerange-${now}-${Math.random().toString(36).slice(2, 9)}`,
     type: 'timerange',
     symbol,
@@ -941,7 +944,6 @@ export const createTimeRangeAnnotation = (
     fillOpacity: options.fillOpacity ?? 0.12,
     lineStyle: options.lineStyle ?? 'solid',
     lineWidth: options.lineWidth ?? 1,
-    label: options.label,
     visibleTimeframes: options.visibleTimeframes ?? undefined,
     createdAt: now,
     updatedAt: now,

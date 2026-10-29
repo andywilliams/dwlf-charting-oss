@@ -207,6 +207,26 @@ const TimeRangeAnnotationView: React.FC<TimeRangeAnnotationViewProps> = ({
   const edgeHandleWidth = 6;
   const edgeHandleHeight = 40;
 
+  const hatched = annotation.fillPattern === 'hatch';
+  // A saved spacing of 0, a negative or a non-number would disable the pattern and leave the band unfilled.
+  const hatchSpacing = Number.isFinite(annotation.hatchSpacing) && annotation.hatchSpacing! > 0 ? annotation.hatchSpacing! : 6;
+  // One pattern per annotation id. Every character outside [A-Za-z0-9_], the dash included, is escaped to
+  // its code, so two different ids never become the same pattern id.
+  const patternId = `timerange-hatch-${annotation.id.replace(/[^A-Za-z0-9_]/g, (c) => `-${c.charCodeAt(0).toString(16)}-`)}`;
+  // Saved label geometry is checked as the spacing is: a size that is not a positive number, or a row that is
+  // not a whole number from 0, falls back to the default rather than drawing the label out of view.
+  const labelFontSize = Number.isFinite(annotation.labelFontSize) && annotation.labelFontSize! > 0 ? annotation.labelFontSize! : 11;
+  const labelRow = Number.isInteger(annotation.labelRow) && annotation.labelRow! >= 0 ? annotation.labelRow! : 0;
+  // A text label runs right from the band's left edge, or from the plot's left edge when the band began
+  // before it, unless that would take it past the plot's right edge (a band near "now"): then it ends at
+  // the edge. A band with no part inside the plot (it starts past the right edge or ends before the left)
+  // has no label in view. Width is estimated (~0.62em a character, plus letter-spacing), since a static render
+  // cannot measure text.
+  const labelWidth = (annotation.label?.length ?? 0) * labelFontSize * 0.7;
+  const labelStart = Math.max(left, 0) + 6;
+  const labelFitsRight = labelStart + labelWidth <= chartWidth - 6;
+  const labelInView = left < chartWidth - 6 && right > 0;
+
   return (
     <g
       className="timerange-annotation"
@@ -238,14 +258,24 @@ const TimeRangeAnnotationView: React.FC<TimeRangeAnnotationViewProps> = ({
         style={{ cursor: 'pointer' }}
       />
 
-      {/* Semi-transparent fill band (full height) */}
+      {hatched && (
+        <defs>
+          <pattern id={patternId} patternUnits="userSpaceOnUse" width={hatchSpacing} height={hatchSpacing} patternTransform="rotate(45)">
+            {/* Mid-tile, so the tile's clip never halves the line's width. */}
+            <line x1={hatchSpacing / 2} y1={0} x2={hatchSpacing / 2} y2={hatchSpacing} stroke={annotation.color} strokeWidth={1} strokeOpacity={annotation.fillOpacity} />
+          </pattern>
+        </defs>
+      )}
+
+      {/* The band, full height: a semi-transparent fill, or a hatch */}
       <rect
         x={left}
         y={0}
         width={bandWidth}
         height={paneHeight}
-        fill={annotation.color}
-        fillOpacity={annotation.fillOpacity}
+        fill={hatched ? `url(#${patternId})` : annotation.color}
+        fillOpacity={hatched ? 1 : annotation.fillOpacity}
+        data-fill-pattern={hatched ? 'hatch' : 'solid'}
         onMouseDown={selected ? startBodyDrag : undefined}
         style={{ cursor: selected ? (isDragging ? 'grabbing' : 'move') : 'pointer' }}
       />
@@ -272,8 +302,23 @@ const TimeRangeAnnotationView: React.FC<TimeRangeAnnotationViewProps> = ({
         strokeDasharray={strokeDasharray}
       />
 
-      {/* Label at top-left of band */}
-      {annotation.label && (
+      {/* Label at top-left of band: a quiet text label, or the default badge */}
+      {annotation.label && annotation.labelStyle === 'text' && labelInView && (
+        <text
+          x={labelFitsRight ? labelStart : chartWidth - 6}
+          y={6 + labelFontSize + labelRow * (labelFontSize + 6)}
+          textAnchor={labelFitsRight ? 'start' : 'end'}
+          fontSize={labelFontSize}
+          fontFamily={annotation.labelFontFamily}
+          letterSpacing="0.08em"
+          fill={annotation.labelColor ?? annotation.color}
+          {...(annotation.labelHalo ? { stroke: annotation.labelHalo, strokeWidth: 3, strokeLinejoin: 'round' as const, paintOrder: 'stroke' } : {})}
+          style={{ pointerEvents: 'none', userSelect: 'none' }}
+        >
+          {annotation.label}
+        </text>
+      )}
+      {annotation.label && annotation.labelStyle !== 'text' && (
         <g>
           <rect
             x={left + 4}

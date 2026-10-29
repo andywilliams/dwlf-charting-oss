@@ -285,10 +285,40 @@ export interface TimeRangeAnnotation extends AnnotationBase {
   time1: number;
   time2: number;
   color: string;
+  /** The band's strength: the fill's opacity, or a hatch's line opacity. */
   fillOpacity: number;
   lineStyle: LineStyle;
   lineWidth: number;
   label?: string;
+  /**
+   * How the band is filled: `solid` (the default) or `hatch`, fine 45° lines in `color` at
+   * `fillOpacity`, so two bands of one hue, or a band printed in greyscale, still read apart.
+   */
+  fillPattern?: 'solid' | 'hatch';
+  /** The gap between a hatch's lines, in px. Default 6. */
+  hatchSpacing?: number;
+  /**
+   * How the label is drawn: `badge` (the default), white text on a filled tag in `color`; or `text`,
+   * the label alone in `color`, for a quieter chart. A `text` label that would run past the plot's
+   * right edge ends at that edge instead.
+   */
+  labelStyle?: 'badge' | 'text';
+  /**
+   * A `text` label's outline colour, normally the host's chart background, so it reads over candles,
+   * as a BOS line's `labelHalo`. Unset: no outline.
+   */
+  labelHalo?: string;
+  /** A `text` label's colour, for when the band's own colour is too light to read as text. Unset: `color`. */
+  labelColor?: string;
+  /** A `text` label's font family. Unset: the chart's. */
+  labelFontFamily?: string;
+  /** A `text` label's font size, in px. Default 11. */
+  labelFontSize?: number;
+  /**
+   * The label's row down from the band's top, 0 first: two bands that can overlap set different rows
+   * so their labels never sit on each other. Default 0.
+   */
+  labelRow?: number;
 }
 
 export interface CrossLineAnnotation extends AnnotationBase {
