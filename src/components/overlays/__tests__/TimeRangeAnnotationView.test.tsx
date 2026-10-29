@@ -29,7 +29,7 @@ describe('TimeRangeAnnotationView fill', () => {
     expect(markup).toMatch(/<pattern id="(timerange-hatch-[^"]+)" patternUnits="userSpaceOnUse" width="5" height="5" patternTransform="rotate\(45\)">/);
     const id = /<pattern id="([^"]+)"/.exec(markup)![1];
     expect(markup).toContain(`fill="url(#${id})"`);
-    expect(markup).toContain('stroke="#4F5B66" stroke-width="1" stroke-opacity="0.5"');
+    expect(markup).toContain('x1="2.5" y1="0" x2="2.5" y2="5" stroke="#4F5B66" stroke-width="1" stroke-opacity="0.5"');
   });
 
   it('gives each hatched band its own pattern', () => {
@@ -39,7 +39,40 @@ describe('TimeRangeAnnotationView fill', () => {
   });
 });
 
+const drawWith = (options: Parameters<typeof createTimeRangeAnnotation>[4], time1 = 1000, time2 = 2000) =>
+  renderToStaticMarkup(
+    <svg>
+      <TimeRangeAnnotationView
+        annotation={{ ...createTimeRangeAnnotation('XAU/USD', '1w', time1, time2, { color: '#4F5B66', fillOpacity: 0.5, ...options }) }}
+        xScale={((t: number) => t / 10) as never}
+        chartWidth={400}
+        paneHeight={300}
+      />
+    </svg>,
+  );
+
+describe('TimeRangeAnnotationView hatch guards', () => {
+  it('falls back to the default spacing for a spacing of 0, a negative or a non-number, so the band is never left unfilled', () => {
+    for (const hatchSpacing of [0, -3, Number.NaN]) expect(drawWith({ fillPattern: 'hatch', hatchSpacing })).toContain('width="6" height="6"');
+  });
+
+  it('never gives two different ids the same pattern', () => {
+    const idFor = (id: string) => /<pattern id="([^"]+)"/.exec(renderToStaticMarkup(
+      <svg>
+        <TimeRangeAnnotationView annotation={{ ...createTimeRangeAnnotation('X', '1w', 1000, 2000, { fillPattern: 'hatch' }), id }} xScale={((t: number) => t / 10) as never} chartWidth={400} paneHeight={300} />
+      </svg>,
+    ))![1];
+    const ids = ['win.1', 'win:1', 'win_1', 'win-1'].map(idFor);
+    expect(new Set(ids).size).toBe(4);
+  });
+});
+
 describe('TimeRangeAnnotationView label', () => {
+  it('draws no text label for a band that starts past the plot\'s right edge', () => {
+    const markup = drawWith({ label: 'HIGH WINDOW', labelStyle: 'text' }, 4100, 4400);
+    expect(markup).not.toContain('HIGH WINDOW');
+  });
+
   it('draws the default badge, white on the band colour, as before', () => {
     const markup = draw({ label: 'Window' });
     expect(markup).toContain('fill="white"');

@@ -208,16 +208,20 @@ const TimeRangeAnnotationView: React.FC<TimeRangeAnnotationViewProps> = ({
   const edgeHandleHeight = 40;
 
   const hatched = annotation.fillPattern === 'hatch';
-  const hatchSpacing = annotation.hatchSpacing ?? 6;
-  // Unique per annotation, so two hatched bands on one page never share (or overwrite) a pattern.
-  const patternId = `timerange-hatch-${annotation.id.replace(/[^A-Za-z0-9_-]/g, '_')}`;
+  // A saved spacing of 0, a negative or a non-number would disable the pattern and leave the band unfilled.
+  const hatchSpacing = Number.isFinite(annotation.hatchSpacing) && annotation.hatchSpacing! > 0 ? annotation.hatchSpacing! : 6;
+  // One pattern per annotation id. Every character outside [A-Za-z0-9_], the dash included, is escaped to
+  // its code, so two different ids never become the same pattern id.
+  const patternId = `timerange-hatch-${annotation.id.replace(/[^A-Za-z0-9_]/g, (c) => `-${c.charCodeAt(0).toString(16)}-`)}`;
   const labelFontSize = annotation.labelFontSize ?? 11;
   const labelRow = annotation.labelRow ?? 0;
   // A text label runs right from the band's left edge, unless that would take it past the plot's right
-  // edge (a band near "now"): then it ends at the edge. Width is estimated (~0.62em a character, plus
-  // letter-spacing), since a static render cannot measure text.
+  // edge (a band near "now"): then it ends at the edge. A band that starts past the plot's right edge has
+  // no label in view. Width is estimated (~0.62em a character, plus letter-spacing), since a static render
+  // cannot measure text.
   const labelWidth = (annotation.label?.length ?? 0) * labelFontSize * 0.7;
   const labelFitsRight = left + 6 + labelWidth <= chartWidth - 6;
+  const labelInView = left < chartWidth - 6;
 
   return (
     <g
@@ -253,7 +257,8 @@ const TimeRangeAnnotationView: React.FC<TimeRangeAnnotationViewProps> = ({
       {hatched && (
         <defs>
           <pattern id={patternId} patternUnits="userSpaceOnUse" width={hatchSpacing} height={hatchSpacing} patternTransform="rotate(45)">
-            <line x1={0} y1={0} x2={0} y2={hatchSpacing} stroke={annotation.color} strokeWidth={1} strokeOpacity={annotation.fillOpacity} />
+            {/* Mid-tile, so the tile's clip never halves the line's width. */}
+            <line x1={hatchSpacing / 2} y1={0} x2={hatchSpacing / 2} y2={hatchSpacing} stroke={annotation.color} strokeWidth={1} strokeOpacity={annotation.fillOpacity} />
           </pattern>
         </defs>
       )}
@@ -294,7 +299,7 @@ const TimeRangeAnnotationView: React.FC<TimeRangeAnnotationViewProps> = ({
       />
 
       {/* Label at top-left of band: a quiet text label, or the default badge */}
-      {annotation.label && annotation.labelStyle === 'text' && (
+      {annotation.label && annotation.labelStyle === 'text' && labelInView && (
         <text
           x={labelFitsRight ? left + 6 : chartWidth - 6}
           y={6 + labelFontSize + labelRow * (labelFontSize + 6)}
