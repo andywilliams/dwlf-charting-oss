@@ -207,6 +207,18 @@ const TimeRangeAnnotationView: React.FC<TimeRangeAnnotationViewProps> = ({
   const edgeHandleWidth = 6;
   const edgeHandleHeight = 40;
 
+  const hatched = annotation.fillPattern === 'hatch';
+  const hatchSpacing = annotation.hatchSpacing ?? 6;
+  // Unique per annotation, so two hatched bands on one page never share (or overwrite) a pattern.
+  const patternId = `timerange-hatch-${annotation.id.replace(/[^A-Za-z0-9_-]/g, '_')}`;
+  const labelFontSize = annotation.labelFontSize ?? 11;
+  const labelRow = annotation.labelRow ?? 0;
+  // A text label runs right from the band's left edge, unless that would take it past the plot's right
+  // edge (a band near "now"): then it ends at the edge. Width is estimated (~0.62em a character, plus
+  // letter-spacing), since a static render cannot measure text.
+  const labelWidth = (annotation.label?.length ?? 0) * labelFontSize * 0.7;
+  const labelFitsRight = left + 6 + labelWidth <= chartWidth - 6;
+
   return (
     <g
       className="timerange-annotation"
@@ -238,14 +250,23 @@ const TimeRangeAnnotationView: React.FC<TimeRangeAnnotationViewProps> = ({
         style={{ cursor: 'pointer' }}
       />
 
-      {/* Semi-transparent fill band (full height) */}
+      {hatched && (
+        <defs>
+          <pattern id={patternId} patternUnits="userSpaceOnUse" width={hatchSpacing} height={hatchSpacing} patternTransform="rotate(45)">
+            <line x1={0} y1={0} x2={0} y2={hatchSpacing} stroke={annotation.color} strokeWidth={1} strokeOpacity={annotation.fillOpacity} />
+          </pattern>
+        </defs>
+      )}
+
+      {/* The band, full height: a semi-transparent fill, or a hatch */}
       <rect
         x={left}
         y={0}
         width={bandWidth}
         height={paneHeight}
-        fill={annotation.color}
-        fillOpacity={annotation.fillOpacity}
+        fill={hatched ? `url(#${patternId})` : annotation.color}
+        fillOpacity={hatched ? 1 : annotation.fillOpacity}
+        data-fill-pattern={hatched ? 'hatch' : 'solid'}
         onMouseDown={selected ? startBodyDrag : undefined}
         style={{ cursor: selected ? (isDragging ? 'grabbing' : 'move') : 'pointer' }}
       />
@@ -272,8 +293,23 @@ const TimeRangeAnnotationView: React.FC<TimeRangeAnnotationViewProps> = ({
         strokeDasharray={strokeDasharray}
       />
 
-      {/* Label at top-left of band */}
-      {annotation.label && (
+      {/* Label at top-left of band: a quiet text label, or the default badge */}
+      {annotation.label && annotation.labelStyle === 'text' && (
+        <text
+          x={labelFitsRight ? left + 6 : chartWidth - 6}
+          y={6 + labelFontSize + labelRow * (labelFontSize + 6)}
+          textAnchor={labelFitsRight ? 'start' : 'end'}
+          fontSize={labelFontSize}
+          fontFamily={annotation.labelFontFamily}
+          letterSpacing="0.08em"
+          fill={annotation.labelColor ?? annotation.color}
+          {...(annotation.labelHalo ? { stroke: annotation.labelHalo, strokeWidth: 3, strokeLinejoin: 'round' as const, paintOrder: 'stroke' } : {})}
+          style={{ pointerEvents: 'none', userSelect: 'none' }}
+        >
+          {annotation.label}
+        </text>
+      )}
+      {annotation.label && annotation.labelStyle !== 'text' && (
         <g>
           <rect
             x={left + 4}

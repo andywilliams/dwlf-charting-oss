@@ -1,0 +1,88 @@
+import { describe, expect, it } from 'vitest';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import TimeRangeAnnotationView from '../TimeRangeAnnotationView';
+import { createTimeRangeAnnotation } from '../AnnotationLayer';
+
+const draw = (options: Parameters<typeof createTimeRangeAnnotation>[4]) =>
+  renderToStaticMarkup(
+    <svg>
+      <TimeRangeAnnotationView
+        annotation={createTimeRangeAnnotation('XAU/USD', '1w', 1000, 2000, { color: '#4F5B66', fillOpacity: 0.5, ...options })}
+        xScale={((t: number) => t / 10) as never}
+        chartWidth={400}
+        paneHeight={300}
+      />
+    </svg>,
+  );
+
+describe('TimeRangeAnnotationView fill', () => {
+  it('fills the band solid by default, as before', () => {
+    const markup = draw({});
+    expect(markup).not.toContain('<pattern');
+    expect(markup).toContain('data-fill-pattern="solid"');
+    expect(markup).toMatch(/fill="#4F5B66" fill-opacity="0.5"/);
+  });
+
+  it('hatches the band at 45° in its colour, at its strength, when asked', () => {
+    const markup = draw({ fillPattern: 'hatch', hatchSpacing: 5 });
+    expect(markup).toMatch(/<pattern id="(timerange-hatch-[^"]+)" patternUnits="userSpaceOnUse" width="5" height="5" patternTransform="rotate\(45\)">/);
+    const id = /<pattern id="([^"]+)"/.exec(markup)![1];
+    expect(markup).toContain(`fill="url(#${id})"`);
+    expect(markup).toContain('stroke="#4F5B66" stroke-width="1" stroke-opacity="0.5"');
+  });
+
+  it('gives each hatched band its own pattern', () => {
+    const a = /<pattern id="([^"]+)"/.exec(draw({ fillPattern: 'hatch' }))![1];
+    const b = /<pattern id="([^"]+)"/.exec(draw({ fillPattern: 'hatch' }))![1];
+    expect(a).not.toBe(b);
+  });
+});
+
+describe('TimeRangeAnnotationView label', () => {
+  it('draws the default badge, white on the band colour, as before', () => {
+    const markup = draw({ label: 'Window' });
+    expect(markup).toContain('fill="white"');
+    expect(markup).toContain('>Window<');
+  });
+
+  it('draws a text label in the band colour, with the halo and font the host gives, and no badge', () => {
+    const markup = draw({ label: 'HIGH WINDOW', labelStyle: 'text', labelHalo: '#F8F5EE', labelFontFamily: 'IBM Plex Mono', labelFontSize: 12 });
+    const text = markup.match(/<text[^>]*>HIGH WINDOW<\/text>/)![0];
+    expect(text).toContain('fill="#4F5B66"');
+    expect(text).toContain('stroke="#F8F5EE"');
+    expect(text).toContain('paint-order="stroke"');
+    expect(text).toContain('font-family="IBM Plex Mono"');
+    expect(text).toContain('font-size="12"');
+    expect(text).toContain('y="18"');
+    expect(markup).not.toContain('fill="white"');
+  });
+
+  it('draws a text label in its own colour when the host gives one, the band keeping its colour', () => {
+    const markup = draw({ label: 'LOW WINDOW', labelStyle: 'text', labelColor: '#7A5E28' });
+    expect(markup.match(/<text[^>]*>/)![0]).toContain('fill="#7A5E28"');
+    expect(markup).toMatch(/fill="#4F5B66" fill-opacity="0.5"/);
+  });
+
+  it('keeps a text label inside the plot: one that would run past the right edge ends at it', () => {
+    const near = renderToStaticMarkup(
+      <svg>
+        <TimeRangeAnnotationView
+          annotation={createTimeRangeAnnotation('XAU/USD', '1w', 3800, 3900, { color: '#4F5B66', label: 'HIGH WINDOW', labelStyle: 'text', labelFontSize: 12 })}
+          xScale={((t: number) => t / 10) as never}
+          chartWidth={400}
+          paneHeight={300}
+        />
+      </svg>,
+    ).match(/<text[^>]*>/)![0];
+    expect(near).toContain('x="394"');
+    expect(near).toContain('text-anchor="end"');
+    expect(draw({ label: 'HIGH WINDOW', labelStyle: 'text' }).match(/<text[^>]*>/)![0]).toContain('text-anchor="start"');
+  });
+
+  it('puts a text label on the row asked for, so two overlapping bands never stack their labels', () => {
+    const text = draw({ label: 'LOW WINDOW', labelStyle: 'text', labelFontSize: 12, labelRow: 1 }).match(/<text[^>]*>/)![0];
+    expect(text).toContain('y="36"');
+    expect(text).not.toContain('stroke=');
+  });
+});
