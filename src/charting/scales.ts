@@ -93,10 +93,13 @@ const shouldIncludeSeriesInAutoScale = (
   return includeOverlays;
 };
 
+const wantsLog = (pane: PaneSpec): boolean => pane.yScale?.type === 'log';
+
 const resolveAutoDomain = (
   pane: PaneSpec,
   includeOverlaysInAutoScale: boolean,
 ): [number, number] => {
+  const log = wantsLog(pane);
   const extents: Array<[number, number]> = [];
 
   const hasOhlcSeries = pane.series.some(series => series.type === 'ohlc');
@@ -105,7 +108,9 @@ const resolveAutoDomain = (
   ));
 
   seriesForDomain.forEach(series => {
-    const values = collectSeriesValues(series);
+    const all = collectSeriesValues(series);
+    // A hist series adds 0 as its base; on a log axis only positive values can place the domain.
+    const values = log ? all.filter(value => value > 0) : all;
     if (!values.length) return;
     const min = d3.min(values);
     const max = d3.max(values);
@@ -124,7 +129,17 @@ const resolveAutoDomain = (
 
   if (!isFiniteNumber(min) || !isFiniteNumber(max) || min === max) {
     const center = isFiniteNumber(min) ? min : 0;
+    if (log && center > 0) {
+      return [center / 2, center * 2];
+    }
     return [center - 1, center + 1];
+  }
+
+  if (log) {
+    // The same 15 % breathing room, measured in decades so both ends get equal visual space.
+    const [lo, hi] = [Math.log10(min), Math.log10(max)];
+    const pad = (hi - lo) * DOMAIN_PADDING_RATIO;
+    return [10 ** (lo - pad), 10 ** (hi + pad)];
   }
 
   const range = max - min;
@@ -160,11 +175,50 @@ export const resolvePaneDomain = (
   return resolveAutoDomain(pane, includeOverlaysInAutoScale);
 };
 
-export const createPaneScale = (domain: [number, number], height: number): PaneComputedScale => {
+const linearTicks = (domain: [number, number]) => (count: number) => d3.scaleLinear().domain(domain).ticks(count);
+
+/**
+ * Log-axis ticks: 1-2-5 per decade inside the domain, thinned to 1 per decade when that gives more than
+ * about twice `count`. Under a decade there are too few round values, so the ticks are linear ones.
+ */
+export const logTicks = (domain: [number, number], count: number): number[] => {
+  const [lo, hi] = [Math.min(...domain), Math.max(...domain)];
+  if (!(lo > 0) || !(hi > lo)) return [];
+  const inDomain = (steps: number[]) => {
+    const out: number[] = [];
+    for (let e = Math.floor(Math.log10(lo)); e <= Math.ceil(Math.log10(hi)); e += 1) {
+      steps.forEach(step => {
+        const v = step * 10 ** e;
+        if (v >= lo && v <= hi) out.push(Number(v.toPrecision(12)));
+      });
+    }
+    return out;
+  };
+  const dense = inDomain([1, 2, 5]);
+  if (dense.length < 2) return d3.scaleLinear().domain([lo, hi]).ticks(count);
+  if (dense.length <= count * 2) return dense;
+  const decades = inDomain([1]);
+  return decades.length >= 2 ? decades : dense;
+};
+
+export const createPaneScale = (
+  domain: [number, number],
+  height: number,
+  type: 'linear' | 'log' = 'linear',
+): PaneComputedScale => {
+  if (type === 'log' && domain[0] > 0 && domain[1] > 0) {
+    const scale = d3.scaleLog().domain(domain).range([height, 0]);
+    const floor = Math.min(...domain);
+    // A non-positive value has no log: it clamps to the floor (e.g. a hist bar's 0 base). A non-finite one stays
+    // NaN, as on the linear path, so views that hide at a non-finite y still hide.
+    const fn = (value: number) => (Number.isFinite(value) ? scale(value > 0 ? value : floor) : Number.NaN);
+    const invert = (value: number) => scale.invert(value);
+    return { domain, scale: fn, invert, type: 'log', ticks: count => logTicks(domain, count) };
+  }
   const scale = d3.scaleLinear().domain(domain).range([height, 0]);
   const fn = (value: number) => scale(value);
   const invert = (value: number) => scale.invert(value);
-  return { domain, scale: fn, invert };
+  return { domain, scale: fn, invert, type: 'linear', ticks: linearTicks(domain) };
 };
 
 export type BuildPaneScalesOptions = {
@@ -185,6 +239,7 @@ export const buildPaneScales = (
     result[pane.id] = createPaneScale(
       resolvePaneDomain(pane, { includeOverlaysInAutoScale }),
       height,
+      wantsLog(pane) ? 'log' : 'linear',
     );
   });
   return result;

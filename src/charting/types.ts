@@ -109,7 +109,15 @@ export interface PaneSpec {
   id: string;
   title?: string;
   heightRatio: number;
-  yScale: { mode: 'auto' | 'fixed'; min?: number; max?: number };
+  /**
+   * `type: 'log'` draws the pane on a base-10 log scale (default `linear`). Meant for price panes over long
+   * spans, where a linear axis flattens the early history. It needs positive values: `auto` derives its domain
+   * from the positive values only, and a non-positive point clamps to the domain's floor. A pane with no positive
+   * values, or a `fixed` domain with a bound <= 0 (an unset `min` counts as 0), falls back to linear.
+   * Annotations stay linear-price objects (fib spacing, channel offsets): keep drawing tools off on log panes
+   * until their log semantics are decided (see README, "Log price scale").
+   */
+  yScale: { mode: 'auto' | 'fixed'; min?: number; max?: number; type?: 'linear' | 'log' };
   series: SeriesSpec[];
   guides?: PaneGuide[];
   /**
@@ -152,6 +160,10 @@ export interface PaneComputedScale {
   domain: [number, number];
   scale: (value: number) => number;
   invert: (value: number) => number;
+  /** `log` only when the pane asked for it and has a positive domain. */
+  type?: 'linear' | 'log';
+  /** Axis/grid tick values for about `count` labels (log: 1-2-5 per decade, thinned to fit). */
+  ticks?: (count: number) => number[];
 }
 
 /** X-axis scale function with optional invert/range accessors */

@@ -162,6 +162,17 @@ const formatNumber = (value: number | null | undefined) => {
   return (value as number).toFixed(2);
 };
 
+/**
+ * Log-pane price text (axis ticks and the crosshair label): as formatNumber, except under 1, where 2 decimals
+ * print "0.00" across whole decades (and repeat neighbouring ticks of a narrow span). 4 significant figures keep
+ * them distinct, even the linear ticks a log pane under one decade uses.
+ */
+const formatLogPrice = (value: number): string => {
+  const abs = Math.abs(value);
+  if (abs > 0 && abs < 1) return Number(value.toPrecision(4)).toString();
+  return formatNumber(value);
+};
+
 const formatTime = (value: number, formatter?: (t: number) => string) => (
   formatter ? formatter(value) : defaultTimeFormatter(new Date(value))
 );
@@ -2342,7 +2353,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
         {paneRects.map(({ pane, y, height: paneHeight }, paneIndex) => {
           const scale = paneScales[pane.id];
           if (!scale) return null;
-          const ticks = d3.scaleLinear().domain(scale.domain).ticks(4);
+          const ticks = scale.ticks ? scale.ticks(4) : d3.scaleLinear().domain(scale.domain).ticks(4);
           const hoverInfo = hover?.perPane[pane.id];
           return (
             <g key={pane.id} transform={`translate(0, ${y})`}>
@@ -2477,7 +2488,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
                       alignmentBaseline="middle"
                       dominantBaseline="middle"
                     >
-                      {formatNumber(tick)}
+                      {scale.type === 'log' ? formatLogPrice(tick) : formatNumber(tick)}
                     </text>
                   ))}
                 </g>
@@ -2557,7 +2568,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
                     if (!Number.isFinite(priceAtPointer)) {
                       return null;
                     }
-                    const labelText = formatNumber(priceAtPointer as number);
+                    const labelText = scale.type === 'log' ? formatLogPrice(priceAtPointer as number) : formatNumber(priceAtPointer as number);
                     return (
                       <g className="dwlf-crosshair-price-label" transform={`translate(0, ${paneY})`} pointerEvents="none">
                         <rect

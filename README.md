@@ -166,6 +166,27 @@ const spec: ChartSpec = {
 };
 ```
 
+### Log price scale
+
+For long histories (e.g. Bitcoin from 2015), set `yScale.type: 'log'` so that equal ratios get equal heights:
+
+```tsx
+{ id: 'price', heightRatio: 3, yScale: { mode: 'auto', type: 'log' }, series: [{ key: 'candles', type: 'ohlc', data: candles }] }
+```
+
+- `auto` pads the domain by 15 % of its span in decades.
+- Ticks are 1-2-5 per decade, thinned to whole decades over a wide span. Under one decade they are linear ticks.
+- Prices under 1 on a log pane (ticks and the crosshair label) show 4 significant figures, not 2 decimals.
+- Only positive values place the domain. A non-positive point (e.g. a hist bar's 0 base) clamps to the floor.
+- A pane with no positive values falls back to linear, and so does a `fixed` domain with a bound <= 0 (an unset `min` counts as 0). The computed scale's `type` says which one it drew.
+- The default is `linear`.
+
+⚠️ **Annotations are linear-price objects.** Their anchors follow the axis. Fib levels, channel offsets and
+brush moves are still spaced in linear price, and a trendline's extension is straight in pixels. So on a log
+pane a saved channel or fib won't look the way it would on a linear pane. Until log semantics for annotations
+are decided, hosts should keep drawing tools off on log panes (`interactiveAnnotations={false}`), and should
+not evaluate saved trendline or channel prices against a log view.
+
 ## DWLFChart Props
 
 | Prop | Type | Default | Description |
