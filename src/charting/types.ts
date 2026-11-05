@@ -114,6 +114,8 @@ export interface PaneSpec {
    * spans, where a linear axis flattens the early history. It needs positive values: `auto` derives its domain
    * from the positive values only, and a non-positive point (or a `fixed` bound <= 0) clamps to the domain's
    * floor. A pane with no positive values falls back to linear.
+   * Annotations stay linear-price objects (fib spacing, channel offsets): keep drawing tools off on log panes
+   * until their log semantics are decided (see README, "Log price scale").
    */
   yScale: { mode: 'auto' | 'fixed'; min?: number; max?: number; type?: 'linear' | 'log' };
   series: SeriesSpec[];
