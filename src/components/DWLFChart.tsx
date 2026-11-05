@@ -2342,7 +2342,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
         {paneRects.map(({ pane, y, height: paneHeight }, paneIndex) => {
           const scale = paneScales[pane.id];
           if (!scale) return null;
-          const ticks = d3.scaleLinear().domain(scale.domain).ticks(4);
+          const ticks = scale.ticks ? scale.ticks(4) : d3.scaleLinear().domain(scale.domain).ticks(4);
           const hoverInfo = hover?.perPane[pane.id];
           return (
             <g key={pane.id} transform={`translate(0, ${y})`}>

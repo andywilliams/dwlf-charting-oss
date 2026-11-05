@@ -166,6 +166,20 @@ const spec: ChartSpec = {
 };
 ```
 
+### Log price scale
+
+For long histories (e.g. Bitcoin from 2015), set `yScale.type: 'log'` so that equal ratios get equal heights:
+
+```tsx
+{ id: 'price', heightRatio: 3, yScale: { mode: 'auto', type: 'log' }, series: [{ key: 'candles', type: 'ohlc', data: candles }] }
+```
+
+- `auto` pads the domain by 15 % of its span in decades.
+- Ticks are 1-2-5 per decade, thinned to whole decades over a wide span. Under one decade they are linear ticks.
+- Only positive values place the domain. A non-positive point (e.g. a hist bar's 0 base) clamps to the floor.
+- A pane with no positive values falls back to linear.
+- The default is `linear`.
+
 ## DWLFChart Props
 
 | Prop | Type | Default | Description |
