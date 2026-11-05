@@ -75,6 +75,19 @@ describe('log price scale', () => {
     expect(labels.some(l => Number(l) > 0 && Number(l) < 0.01)).toBe(true);
   });
 
+  it('keeps neighbouring sub-cent ticks distinct on a log pane under one decade', () => {
+    const quiet = Array.from({ length: 200 }, (_, i) => {
+      const c = 0.005005 + (0.00004 * i) / 199;
+      return { t: t0 + i * DAY, o: c, h: c, l: c, c };
+    });
+    const spec: ChartSpec = { panes: [{ id: 'q', heightRatio: 1, yScale: { mode: 'auto', type: 'log' }, series: [{ key: 'q', type: 'ohlc', data: quiet }] }] };
+    const markup = renderToStaticMarkup(<DWLFChart spec={spec} timeframe="1d" />);
+    const axis = markup.match(/<g class="dwlf-y-axis"[^>]*>(.*?)<\/g>/)?.[1] ?? '';
+    const labels = [...axis.matchAll(/>([^<]+)<\/text>/g)].map(m => m[1]);
+    expect(labels.length).toBeGreaterThan(1);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+
   it('ignores a hist series 0 base when placing a log domain', () => {
     const pane: PaneSpec = { id: 'v', heightRatio: 1, yScale: { mode: 'auto', type: 'log' },
       series: [{ key: 'h', type: 'hist', data: [{ t: 1, v: 10 }, { t: 2, v: 1000 }] }] };
