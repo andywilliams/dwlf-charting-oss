@@ -176,7 +176,7 @@ For long histories (e.g. Bitcoin from 2015), set `yScale.type: 'log'` so that eq
 
 - `auto` pads the domain by 15 % of its span in decades.
 - Ticks are 1-2-5 per decade, thinned to whole decades over a wide span. Under one decade they are linear ticks.
-- Prices under 0.01 on a log pane (ticks and the crosshair label) show 4 significant figures instead of "0.00".
+- Prices under 1 on a log pane (ticks and the crosshair label) show 4 significant figures, not 2 decimals.
 - Only positive values place the domain. A non-positive point (e.g. a hist bar's 0 base) clamps to the floor.
 - A pane with no positive values falls back to linear, and so does a `fixed` domain with a bound <= 0 (an unset `min` counts as 0). The computed scale's `type` says which one it drew.
 - The default is `linear`.

@@ -163,13 +163,13 @@ const formatNumber = (value: number | null | undefined) => {
 };
 
 /**
- * Log-pane price text (axis ticks and the crosshair label): as formatNumber, except under 0.01, where 2 decimals
- * would print "0.00" across whole decades. 4 significant figures keep neighbouring sub-cent ticks distinct, even the
- * linear ticks a log pane under one decade uses.
+ * Log-pane price text (axis ticks and the crosshair label): as formatNumber, except under 1, where 2 decimals
+ * print "0.00" across whole decades (and repeat neighbouring ticks of a narrow span). 4 significant figures keep
+ * them distinct, even the linear ticks a log pane under one decade uses.
  */
 const formatLogPrice = (value: number): string => {
   const abs = Math.abs(value);
-  if (abs > 0 && abs < 0.01) return Number(value.toPrecision(4)).toString();
+  if (abs > 0 && abs < 1) return Number(value.toPrecision(4)).toString();
   return formatNumber(value);
 };
 
