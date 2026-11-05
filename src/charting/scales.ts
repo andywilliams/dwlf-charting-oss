@@ -209,8 +209,9 @@ export const createPaneScale = (
   if (type === 'log' && domain[0] > 0 && domain[1] > 0) {
     const scale = d3.scaleLog().domain(domain).range([height, 0]);
     const floor = Math.min(...domain);
-    // A non-positive value has no log: it clamps to the floor (e.g. a hist bar's 0 base) rather than NaN.
-    const fn = (value: number) => scale(value > 0 ? value : floor);
+    // A non-positive value has no log: it clamps to the floor (e.g. a hist bar's 0 base). A non-finite one stays
+    // NaN, as on the linear path, so views that hide at a non-finite y still hide.
+    const fn = (value: number) => (Number.isFinite(value) ? scale(value > 0 ? value : floor) : Number.NaN);
     const invert = (value: number) => scale.invert(value);
     return { domain, scale: fn, invert, type: 'log', ticks: count => logTicks(domain, count) };
   }

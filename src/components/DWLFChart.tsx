@@ -162,6 +162,13 @@ const formatNumber = (value: number | null | undefined) => {
   return (value as number).toFixed(2);
 };
 
+/** Log-axis tick labels: as formatNumber, except under 0.01, where 2 decimals would print "0.00". */
+const formatLogTick = (value: number): string => {
+  const abs = Math.abs(value);
+  if (abs > 0 && abs < 0.01) return Number(value.toPrecision(2)).toString();
+  return formatNumber(value);
+};
+
 const formatTime = (value: number, formatter?: (t: number) => string) => (
   formatter ? formatter(value) : defaultTimeFormatter(new Date(value))
 );
@@ -2477,7 +2484,7 @@ const DWLFChart = forwardRef<DwlfChartHandle, DWLFChartProps>(function DWLFChart
                       alignmentBaseline="middle"
                       dominantBaseline="middle"
                     >
-                      {formatNumber(tick)}
+                      {scale.type === 'log' ? formatLogTick(tick) : formatNumber(tick)}
                     </text>
                   ))}
                 </g>

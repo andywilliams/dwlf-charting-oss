@@ -51,6 +51,30 @@ describe('log price scale', () => {
     expect(s.scale(-5)).toBe(s.scale(100));
   });
 
+  it('keeps a non-finite value NaN, as on the linear path', () => {
+    const s = createPaneScale([100, 100_000], HEIGHT, 'log');
+    expect(Number.isNaN(s.scale(Number.NaN))).toBe(true);
+    expect(Number.isNaN(s.scale(undefined as unknown as number))).toBe(true);
+  });
+
+  it('falls back to linear on a fixed domain with a bound <= 0 (unset min counts as 0)', () => {
+    const pane: PaneSpec = { id: 'f', heightRatio: 1, yScale: { mode: 'fixed', max: 1000, type: 'log' }, series: [] };
+    expect(buildPaneScales({ panes: [pane] }, { f: HEIGHT }).f.type).toBe('linear');
+  });
+
+  it('labels sub-cent log ticks with significant digits, not "0.00"', () => {
+    const tiny = Array.from({ length: 200 }, (_, i) => {
+      const c = 0.001 * (10_000 ** (i / 199));
+      return { t: t0 + i * DAY, o: c, h: c, l: c, c };
+    });
+    const spec: ChartSpec = { panes: [{ id: 'p', heightRatio: 1, yScale: { mode: 'auto', type: 'log' }, series: [{ key: 'p', type: 'ohlc', data: tiny }] }] };
+    const markup = renderToStaticMarkup(<DWLFChart spec={spec} timeframe="1d" />);
+    const axis = markup.match(/<g class="dwlf-y-axis"[^>]*>(.*?)<\/g>/)?.[1] ?? '';
+    const labels = [...axis.matchAll(/>([^<]+)<\/text>/g)].map(m => m[1]);
+    expect(labels).not.toContain('0.00');
+    expect(labels.some(l => Number(l) > 0 && Number(l) < 0.01)).toBe(true);
+  });
+
   it('ignores a hist series 0 base when placing a log domain', () => {
     const pane: PaneSpec = { id: 'v', heightRatio: 1, yScale: { mode: 'auto', type: 'log' },
       series: [{ key: 'h', type: 'hist', data: [{ t: 1, v: 10 }, { t: 2, v: 1000 }] }] };

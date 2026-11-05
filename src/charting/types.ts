@@ -112,8 +112,8 @@ export interface PaneSpec {
   /**
    * `type: 'log'` draws the pane on a base-10 log scale (default `linear`). Meant for price panes over long
    * spans, where a linear axis flattens the early history. It needs positive values: `auto` derives its domain
-   * from the positive values only, and a non-positive point (or a `fixed` bound <= 0) clamps to the domain's
-   * floor. A pane with no positive values falls back to linear.
+   * from the positive values only, and a non-positive point clamps to the domain's floor. A pane with no positive
+   * values, or a `fixed` domain with a bound <= 0 (an unset `min` counts as 0), falls back to linear.
    * Annotations stay linear-price objects (fib spacing, channel offsets): keep drawing tools off on log panes
    * until their log semantics are decided (see README, "Log price scale").
    */
